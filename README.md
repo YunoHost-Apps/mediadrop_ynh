@@ -1,5 +1,6 @@
 # Mediadrop for YunoHost
 
+/!\ Installation is not finalized /!\
 Can not be installed on ARM
 
 ### Version 1.0.0 (13/03/17)
