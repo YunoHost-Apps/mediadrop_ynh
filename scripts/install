@@ -1,0 +1,128 @@
+#!/bin/bash
+
+# Exit on command errors and treat unset variables as an error
+set -eu
+
+source .fonctions	# Loads the generic functions usually used in the script
+source /usr/share/yunohost/helpers # Source app helpers
+
+CLEAN_SETUP () {
+	# Clean installation residues that are not supported by the remove script.
+	# Clean hosts
+	sudo sed -i '/#MEDIADROP/d' /etc/hosts
+}
+TRAP_ON	# Active trap to stop the script if an error is detected.
+
+domain=$YNH_APP_ARG_DOMAIN
+path=$YNH_APP_ARG_PATH
+admin_mediadrop=$YNH_APP_ARG_ADMIN
+language=$YNH_APP_ARG_LANGUAGE
+multisite=$YNH_APP_ARG_MULTISITE
+is_public=$YNH_APP_ARG_IS_PUBLIC
+
+app=$YNH_APP_INSTANCE_NAME
+
+fichier="MediaCore-0.10.3"
+
+CHECK_VAR "$app" "app name not set"
+
+CHECK_USER "$admin_mediadrop"
+
+CHECK_PATH
+
+CHECK_DOMAINPATH
+
+CHECK_FINALPATH
+
+ynh_app_setting_set $app domain $domain
+ynh_app_setting_set $app path $path
+ynh_app_setting_set $app admin $admin_mediadrop
+ynh_app_setting_set $app is_public $is_public
+ynh_app_setting_set $app language $language
+ynh_app_setting_set $app multisite $multisite
+
+# Install python-virtualenv and all dependencies
+sudo apt-get update
+sudo apt-get -y install libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+sudo apt-get -y install python-setuptools python-virtualenv python-dev
+
+GENERATE_DB $app	# Create a database and a dedicated user in the app name
+
+# Creates the destination directory and stores its location.
+sudo mkdir "$final_path"
+ynh_app_setting_set $app final_path $final_path
+
+SETUP_SOURCE "${fichier}.tar.gz"
+
+# copy config file before install Mediadrop
+sudo cp ../conf/deployment.ini $final_path
+sudo sed -i "s@__USER__@$admin_mediadrop@g" $final_path/deployment.ini
+sudo sed -i "s@__DOMAIN__@$domain@g" $final_path/deployment.ini
+sudo sed -i "s@__DB_USER__@$db_user@g" $final_path/deployment.ini
+sudo sed -i "s@__DB_PASS__@$db_pwd@g" $final_path/deployment.ini
+
+cd "$final_path"
+
+# Create a new virtual environment:
+sudo virtualenv --distribute --no-site-packages venv
+
+# Now, activate that virtual environment:
+sudo su -c "source $final_path/venv/bin/activate"
+
+# Prepare mediacore to be installed
+sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
+
+sudo python setup.py install
+
+# To create deployment.ini in your current dir:
+# sudo paster make-config MediaCore deployment.ini
+
+# launch uWSGI and serve with settings from your config file
+# sudo uwsgi --ini-paste $final_path/deployment.ini
+
+# Set permissions mediadrop directory
+sudo chown -R www-data: $final_path
+
+# Setup Mediadrop
+sudo paster setup-app deployment.ini
+
+# be king rewind here
+cd -
+
+echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
+
+# Copy nginx configuration
+sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
+
+# Modif the variables in the nginx configuration file
+sudo sed -i "s@__PATHTOCHANGE__@$path@g" /etc/nginx/conf.d/$domain.d/$app.conf
+sudo sed -i "s@__FINALPATH__@$final_path@g" /etc/nginx/conf.d/$domain.d/$app.conf
+
+if [ "$is_public" = "Yes" ];
+then
+	sudo sed -i "s@#--PRIVATE--@@g" /etc/nginx/conf.d/$domain.d/$app.conf
+fi
+
+# Import fulltext search database triggers
+mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
+
+sudo paster serve --reload ${final_path}/deployment.ini
+
+POOL_FPM
+
+# Setup SSOwat
+ynh_app_setting_set "$app" is_public "$is_public"
+if [ "$is_public" = "Yes" ];
+then
+  ynh_app_setting_set "$app" unprotected_uris "/"
+fi
+
+# Reload SSOwat configuration
+sudo yunohost app ssowatconf
+
+# Reload Nginx and regenerate SSOwat conf
+sudo service php5-fpm restart
+sudo service nginx reload
+
+# clean hosts
+sudo sed -i '/#MEDIADROP/d' /etc/hosts

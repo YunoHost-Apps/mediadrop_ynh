@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Exit on command errors and treat unset variables as an error
+set -eu
+
+# Get multi-instances specific variables
+app=$YNH_APP_INSTANCE_NAME
+
+# Source app helpers
+source /usr/share/yunohost/helpers
+
+# Retrieve app settings
+domain=$(ynh_app_setting_get "$app" domain)
+with_mysql=$(ynh_app_setting_get "$app" with_mysql)
+
+# Copy the app files
+final_path="/var/www/${app}"
+ynh_backup "$final_path" "sources" 1
+
+# Copy the nginx conf files
+ynh_backup "/etc/nginx/conf.d/${domain}.d/${app}.conf" "nginx.conf"
+# Copy the php-fpm conf files
+ynh_backup "/etc/php5/fpm/pool.d/${app}.conf" "php-fpm.conf"
+ynh_backup "/etc/php5/fpm/conf.d/20-${app}.ini" "php-fpm.ini"
+
+# Backup db
+if [[ $with_mysql -eq 1 ]]; then
+	root_pwd=$(sudo cat /etc/yunohost/mysql)
+	sudo su -c "mysqldump -u root -p$root_pwd --no-create-db $app > ./db.sql"
+fi

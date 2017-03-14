@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Exit on command errors and treat unset variables as an error
+set -u
+
+# Get multi-instances specific variables
+app=$YNH_APP_INSTANCE_NAME
+
+# Source app helpers
+source /usr/share/yunohost/helpers
+
+# Retrieve app settings
+domain=$(ynh_app_setting_get "$app" domain)
+# with_mysql=$(ynh_app_setting_get "$app" with_mysql)
+
+# Drop MySQL database and user as needed
+#if [[ $with_mysql -eq 1 ]]; then
+dbname=$app
+dbuser=$app
+dbpass=$(ynh_app_setting_get "$app" mysqlpwd)
+ynh_mysql_drop_db $dbname || true
+ynh_mysql_drop_user $dbuser || true
+#fi
+
+# Remove python app
+sudo apt-get remove --purge -y libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+sudo apt-get remove --purge -y python-setuptools python-virtualenv python-dev
+
+# Delete app directory and configurations
+sudo rm -rf "/var/www/${app}"
+sudo rm -f "/etc/php5/fpm/pool.d/${app}.conf"
+sudo rm -f "/etc/php5/fpm/conf.d/20-${app}.ini"
+[[ -n $domain ]] && sudo rm -f "/etc/nginx/conf.d/${domain}.d/${app}.conf"
+
+# Reload services
+sudo service php5-fpm restart || true
+sudo service nginx reload || true
