@@ -53,15 +53,6 @@
 				"example": "johndoe"
 			},
 			{
-				"name": "multisite",
-				"ask": {
-					"en": "Enable multisite option ?",
-					"fr": "Activer l'option multisite ?"
-				},
-				"choices": ["Yes", "No"],
-				"default": "No"
-			},
-			{
 				"name": "is_public",
 				"ask": {
 					"en": "Is it a public Mediadrop site ?",
@@ -69,15 +60,6 @@
 				},
 				"choices": ["Yes", "No"],
 				"default": "Yes"
-			},
-			{
-				"name": "language",
-				"ask": {
-					"en": "Choose the application language",
-					"fr": "Choisissez la langue de l'application"
-				},
-				"choices": ["en_EN", "fr_FR"],
-				"default": "fr_FR"
 			}
 		]
 	}

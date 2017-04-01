@@ -1,0 +1,16 @@
+[Unit]
+Description=uWSGI instance to mediadrop
+Requires=network.target
+After=network.target
+
+[Service]
+User=mediadrop
+Group=www-data
+RemainAfterExit=yes
+WorkingDirectory=__FINALPATH__
+# PIDFile=__FINALPATH__script/hypnotoad.pid
+Environment="PATH=__FINALPATH__venv/bin"
+ExecStart=/usr/bin/uwsgi --thunder-lock --enable-threads --ini-paste deployment.ini
+
+[Install]
+WantedBy=multi-user.target

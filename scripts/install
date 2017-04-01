@@ -16,13 +16,11 @@ TRAP_ON	# Active trap to stop the script if an error is detected.
 domain=$YNH_APP_ARG_DOMAIN
 path=$YNH_APP_ARG_PATH
 admin_mediadrop=$YNH_APP_ARG_ADMIN
-language=$YNH_APP_ARG_LANGUAGE
-multisite=$YNH_APP_ARG_MULTISITE
 is_public=$YNH_APP_ARG_IS_PUBLIC
 
 app=$YNH_APP_INSTANCE_NAME
 
-fichier="MediaCore-0.10.3"
+# fichier="MediaCore-0.10.3"
 
 CHECK_VAR "$app" "app name not set"
 
@@ -38,13 +36,14 @@ ynh_app_setting_set $app domain $domain
 ynh_app_setting_set $app path $path
 ynh_app_setting_set $app admin $admin_mediadrop
 ynh_app_setting_set $app is_public $is_public
-ynh_app_setting_set $app language $language
-ynh_app_setting_set $app multisite $multisite
 
 # Install python-virtualenv and all dependencies
 sudo apt-get update
-sudo apt-get -y install libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
-sudo apt-get -y install python-setuptools python-virtualenv python-dev
+sudo apt-get -y install libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev
+sudo apt-get -y install python-setuptools python-virtualenv python-dev python-pip uwsgi
+# sudo pip install uwsgi
+# sudo pip install pasteDeploy --upgrade
+# sudo pip install PasteScript --upgrade
 
 GENERATE_DB $app	# Create a database and a dedicated user in the app name
 
@@ -52,44 +51,7 @@ GENERATE_DB $app	# Create a database and a dedicated user in the app name
 sudo mkdir "$final_path"
 ynh_app_setting_set $app final_path $final_path
 
-SETUP_SOURCE "${fichier}.tar.gz"
-
-# copy config file before install Mediadrop
-sudo cp ../conf/deployment.ini $final_path
-sudo sed -i "s@__USER__@$admin_mediadrop@g" $final_path/deployment.ini
-sudo sed -i "s@__DOMAIN__@$domain@g" $final_path/deployment.ini
-sudo sed -i "s@__DB_USER__@$db_user@g" $final_path/deployment.ini
-sudo sed -i "s@__DB_PASS__@$db_pwd@g" $final_path/deployment.ini
-
-cd "$final_path"
-
-# Create a new virtual environment:
-sudo virtualenv --distribute --no-site-packages venv
-
-# Now, activate that virtual environment:
-sudo su -c "source $final_path/venv/bin/activate"
-
-# Prepare mediacore to be installed
-sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
-
-sudo python setup.py install
-
-# To create deployment.ini in your current dir:
-# sudo paster make-config MediaCore deployment.ini
-
-# launch uWSGI and serve with settings from your config file
-# sudo uwsgi --ini-paste $final_path/deployment.ini
-
-# Set permissions mediadrop directory
-sudo chown -R www-data: $final_path
-
-# Setup Mediadrop
-sudo paster setup-app deployment.ini
-
-# be king rewind here
-cd -
-
-echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
+SETUP_SOURCE
 
 # Copy nginx configuration
 sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
@@ -103,12 +65,65 @@ then
 	sudo sed -i "s@#--PRIVATE--@@g" /etc/nginx/conf.d/$domain.d/$app.conf
 fi
 
+# Change directory for install mediadrop
+cd "$final_path"
+
+# Create a new virtual environment:
+sudo virtualenv --distribute --no-site-packages venv
+
+# Now, activate that virtual environment:
+sudo su -c "source $final_path/venv/bin/activate"
+
+# Prepare mediacore to be installed
+sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
+
+sudo python setup.py develop
+
+# To create deployment.ini in your current dir:
+# sudo paster make-config MediaCore deployment.ini
+sudo paster make-config MediaDrop deployment.ini
+
+# # copy config file before install Mediadrop
+# sudo cp ../conf/deployment.ini $final_path
+# sudo sed -i "s@__USER__@$admin_mediadrop@g" $final_path/deployment.ini
+# sudo sed -i "s@__DOMAIN__@$domain@g" $final_path/deployment.ini
+# sudo sed -i "s@__DB_USER__@$db_user@g" $final_path/deployment.ini
+# sudo sed -i "s@__DB_PASS__@$db_pwd@g" $final_path/deployment.ini
+
+sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
+# sudo sed -i 's,smtp_server = localhost,smtp_server = '${SMTP_SERVER}',' $final_path/deployment.ini
+# sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${SMTP_FROM}'@'${SMTP_DOMAIN}',' $final_path/deployment.ini
+sudo sed -i 's,mysql://username:pass@localhost/dbname,mysql://'${db_user}':'${db_pwd}'@localhost/'${db_user}',' $final_path/deployment.ini
+sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
+# sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
+sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
+sudo sed -i 's,enable_gzip = true,enable_gzip = false,' $final_path/deployment.ini
+# sudo sed -i 's,cache_dir = %(here)s/data,cache_dir = /wsgi/data/,' $final_path/deployment.ini
+# sudo sed -i 's,image_dir = %(here)s/data/images,image_dir = /wsgi/data/images/,' $final_path/deployment.ini
+# sudo sed -i 's,media_dir = %(here)s/data/media,media_dir = /wsgi/data/media/,' $final_path/deployment.ini
+sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
+
+cd -
+
+# Add uwsgi into deployment.ini (end of file)
+sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
+
+cd "$final_path"
+
+# Set permissions mediadrop directory
+sudo chown -R www-data: $final_path
+
+# launch uWSGI and serve with settings from your config file
+# sudo uwsgi --ini-paste $final_path/deployment.ini
+sudo uwsgi --thunder-lock --ini-paste $final_path/deployment.ini
+
+# Setup Mediadrop
+sudo paster setup-app $final_path/deployment.ini
+
 # Import fulltext search database triggers
-mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
+sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
 
-sudo paster serve --reload ${final_path}/deployment.ini
-
-POOL_FPM
+echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
 
 # Setup SSOwat
 ynh_app_setting_set "$app" is_public "$is_public"
@@ -123,6 +138,9 @@ sudo yunohost app ssowatconf
 # Reload Nginx and regenerate SSOwat conf
 sudo service php5-fpm restart
 sudo service nginx reload
+
+# Start mediadrop server
+# sudo paster serve --reload ${final_path}/deployment.ini
 
 # clean hosts
 sudo sed -i '/#MEDIADROP/d' /etc/hosts
