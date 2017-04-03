@@ -3,33 +3,50 @@
 # Exit on command errors and treat unset variables as an error
 set -u
 
-# Get multi-instances specific variables
-app=$YNH_APP_INSTANCE_NAME
-
+source .fonctions	# Loads the generic functions usually used in the script
 # Source app helpers
 source /usr/share/yunohost/helpers
 
+# Get multi-instances specific variables
+app=$YNH_APP_INSTANCE_NAME
+
 # Retrieve app settings
 domain=$(ynh_app_setting_get "$app" domain)
-# with_mysql=$(ynh_app_setting_get "$app" with_mysql)
 
-# Drop MySQL database and user as needed
-#if [[ $with_mysql -eq 1 ]]; then
+# Stop service
+if [ -e "/etc/systemd/system/mediadrop_uwsgi.service" ]; then
+	echo "Delete systemd script"
+	sudo service mediadrop_uwsgi stop
+	sudo rm "/etc/systemd/system/mediadrop_uwsgi.service"
+	sudo systemctl disable mediadrop_uwsgi.service
+fi
+
+# Delete service on Yunohost monitoring
+if sudo yunohost service status | grep -q mediadrop_uwsgi
+then
+	echo "Remove mediadrop_uwsgi service"
+	sudo yunohost service remove mediadrop_uwsgi
+fi
+
 dbname=$app
 dbuser=$app
 dbpass=$(ynh_app_setting_get "$app" mysqlpwd)
-ynh_mysql_drop_db $dbname || true
-ynh_mysql_drop_user $dbuser || true
-#fi
+ynh_mysql_drop_db $dbname
+ynh_mysql_drop_user $dbuser
 
 # Remove python app
 sudo apt-get remove --purge -y libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
 sudo apt-get remove --purge -y python-setuptools python-virtualenv python-dev
 
 # Delete app directory and configurations
-sudo rm -rf "/var/www/${app}"
+SECURE_REMOVE '/var/www/$app'
 [[ -n $domain ]] && sudo rm -f "/etc/nginx/conf.d/${domain}.d/${app}.conf"
 
+REMOVE_NGINX_CONF	# Suppression de la configuration nginx
+
+SECURE_REMOVE '/var/log/$app/'	# Suppression des log
+
 # Reload services
-sudo service php5-fpm restart || true
-sudo service nginx reload || true
+sudo service nginx reload
+
+echo -e "\e[0m"	# Restore normal color

@@ -4,13 +4,16 @@ Requires=network.target
 After=network.target
 
 [Service]
-User=mediadrop
-Group=www-data
+#User=www-data
+#Group=www-data
 RemainAfterExit=yes
 WorkingDirectory=__FINALPATH__
-# PIDFile=__FINALPATH__script/hypnotoad.pid
 Environment="PATH=__FINALPATH__venv/bin"
-ExecStart=/usr/bin/uwsgi --thunder-lock --enable-threads --ini-paste deployment.ini
+ExecStart=/usr/bin/uwsgi --ini /var/www/mediadrop/deployment.ini
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -INT $MAINPID
+Restart=always
+StandardError=syslog
 
 [Install]
 WantedBy=multi-user.target
