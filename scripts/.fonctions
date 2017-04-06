@@ -58,19 +58,10 @@ CHECK_DOMAINPATH () {	# Checks the availability of the path and domain.
 }
 
 CHECK_FINALPATH () {	# Checks that the destination folder is not already in use.
-	final_path=/var/www/$app
+	final_path=/opt/$app
 	if [ -e "$final_path" ]
 	then
 		echo "This path already contains a folder" >&2
-		false
-	fi
-}
-
-CHECK_FINALPATH_VENV () {	# Checks that the virtualenv folder is not already in use.
-	final_path_venv=/var/www/$app/venv
-	if [ -e "$final_path_venv" ]
-	then
-		echo "This venv path already contains a folder" >&2
 		false
 	fi
 }

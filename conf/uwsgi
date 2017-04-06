@@ -1,21 +1,9 @@
 
 [uwsgi]
-socket = /tmp/uwsgi-mediadrop.soc
+socket = /tmp/uwsgi-mediadrop.sock
 master = true
 processes = 5
-home = /var/www/mediadrop/venv
-pidfile = /run/uwsgi/mediadrop.uwsgi.pid
-
-#chdir = /var/www/mediadrop
-#virtualenv = /var/www/mediadrop/venv
-#wsgi-file = /var/www/mediadrop/mediacore.wsgi
-#stats = 127.0.0.1:8080
-#chmod-socket = 664
-#uid = www-data
-#gid = www-data
-#no-site=true
-#plugins=python
-
-## First, edit one line in /path/to/deployment.ini. Find the static_files line, and set it to false.
-## disable static file serving with MediaDrop
-# static_files = false
+chmod-socket=777
+uid=root
+gid=root
+home = /opt/mediadrop/venv

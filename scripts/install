@@ -30,6 +30,8 @@ CHECK_DOMAINPATH
 
 CHECK_FINALPATH
 
+FIND_PORT 8081	# Check port availability
+
 ynh_app_setting_set $app domain $domain
 ynh_app_setting_set $app path $path
 ynh_app_setting_set $app admin $admin_mediadrop
@@ -38,14 +40,17 @@ ynh_app_setting_set $app is_public $is_public
 # Install python-virtualenv and all dependencies
 sudo apt-get update
 sudo apt-get -y install libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev
-sudo apt-get -y install python-setuptools python-virtualenv python-dev uwsgi-plugin-python
+sudo apt-get -y install python-setuptools python-virtualenv python-dev python-pip
 
 GENERATE_DB $app	# Create a database and a dedicated user in the app name
 
 # Creates the destination directory and stores its location.
-sudo mkdir "$final_path"
+sudo mkdir -p "$final_path/venv"
 ynh_app_setting_set $app final_path $final_path
+# Create user
+sudo useradd -N $app -d /opt/$app/
 
+# Get source
 SETUP_SOURCE
 
 # Copy nginx configuration
@@ -60,33 +65,35 @@ then
 	sudo sed -i "s@#--PRIVATE--@@g" /etc/nginx/conf.d/$domain.d/$app.conf
 fi
 
-# Create a new virtual environment:
-sudo virtualenv --distribute --no-site-packages $final_path/venv
+# Set permissions mediadrop directory
+sudo chown -R $app: $final_path
 
-# Now, activate that virtual environment:
-sudo su -c "source $final_path/venv/bin/activate"
+# Create a new virtual environment:
+sudo su $app -c "virtualenv --distribute --no-site-packages $final_path/venv"
 
 # Prepare mediacore to be installed
 sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
 
-cd $final_path
-sudo python setup.py develop
+# Now, activate that virtual environment
+pushd $final_path
+sudo bash -c "source $final_path/venv/bin/activate && pip install uwsgi && python setup.py develop"
 
-# To create deployment.ini in your current dir:
-# sudo paster make-config MediaCore deployment.ini
-sudo paster make-config MediaDrop ${final_path}/deployment.ini
-cd -
+# To create deployment.ini in your current dir
+sudo paster make-config MediaDrop "${final_path}/deployment.ini"
+# Be king rewind
+popd
 
 # Adapt config Mediadrop
+sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
+sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
 sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
-# sudo sed -i 's,smtp_server = localhost,smtp_server = '${SMTP_SERVER}',' $final_path/deployment.ini
-# sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${SMTP_FROM}'@'${SMTP_DOMAIN}',' $final_path/deployment.ini
-# sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,' $final_path/deployment.ini
+sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
 sudo sed -i 's,mysql://username:pass@localhost/dbname,mysql://'${db_user}':'${db_pwd}'@localhost/'${db_user}',' $final_path/deployment.ini
 sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
 sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
 sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
 sudo sed -i 's,enable_gzip = true,enable_gzip = false,' $final_path/deployment.ini
+sudo sed -i 's,static_files = false,static_files = true,' $final_path/deployment.ini
 sudo sed -i "s,cache_dir = %(here)s/data,cache_dir = $final_path/data/," $final_path/deployment.ini
 sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/images/," $final_path/deployment.ini
 sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
@@ -99,37 +106,43 @@ sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
 sudo cp ../conf/mediadrop.uwsgi.service /etc/systemd/system/mediadrop.uwsgi.service
 sudo chown root: /etc/systemd/system/mediadrop.uwsgi.service
 sudo sed -i "s@__FINALPATH__@$final_path/@g" /etc/systemd/system/mediadrop.uwsgi.service
-
-# Set permissions mediadrop directory
-sudo chown -R www-data: $final_path
+sudo cp ../conf/mediadrop.service /etc/systemd/system/mediadrop.service
+sudo chown root: /etc/systemd/system/mediadrop.service
+sudo sed -i "s@__FINALPATH__@$final_path/@g" /etc/systemd/system/mediadrop.service
 
 # Setup Mediadrop
-sudo paster setup-app $final_path/deployment.ini
+sudo paster setup-app "$final_path/deployment.ini"
 
 # Import fulltext search database triggers
 sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
 
 echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
 
-# Setup SSOwat
-ynh_app_setting_set "$app" is_public "$is_public"
-if [ "$is_public" = "Yes" ];
+# Set ssowat config
+if [ "$is_public" = "No" ];
 then
-  ynh_app_setting_set "$app" unprotected_uris "/"
+	ynh_app_setting_delete $app skipped_uris
 fi
 
 # Reload SSOwat configuration
 sudo yunohost app ssowatconf
 
-# Start lufi
+# Start uwsgi
 sudo systemctl daemon-reload
 sudo systemctl start mediadrop.uwsgi.service
 sudo systemctl enable mediadrop.uwsgi.service
 
-# Add mediadrop as a service
-sudo yunohost service add mediadrop_uwsgi
+# Start mediadrop
+sudo systemctl start mediadrop.uwsgi.service
+sudo systemctl enable mediadrop.uwsgi.service
 
-# Reload Nginx and regenerate SSOwat conf
+# Add uwsgi & mediadrop as a service
+sudo yunohost service add mediadrop.uwsgi
+sudo yunohost service add mediadrop
+
+sudo rm -fr /root/.python-eggs
+
+# Reload Nginx
 sudo service nginx reload
 
 # Start mediadrop server
