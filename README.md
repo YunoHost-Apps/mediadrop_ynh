@@ -24,11 +24,11 @@ https://www.domain.tld/mediadrop/admin
 
 Le nom d'utilisateur est "*admin*" et le mot de passe "*admin*"
 
-## Features for Yunohost app
+## Fonctionnalité pour MediaDrop
 
 Jouer avec les services
 
-#### Relancer mediadrop
+#### Relancer MediaDrop
 
 `sudo systemctl stop mediadrop`
 `sudo systemctl start mediadrop`
@@ -39,6 +39,28 @@ Jouer avec les services
 `sudo systemctl stop mediadrop.uwsgi`
 `sudo systemctl start mediadrop.uwsgi`
 `sudo systemctl status mediadrop.uwsgi`
+
+### Problème rencontré
+
+Si vous rencontez cette erreur dans le fichier syslog ? 
+
+`Use 'mysqld --thread_stack=#' to specify a bigger stack.")`
+
+C'est que l'option thread_stack n'est pas assez élevé. Cette option de gérer la taille de la pile pour chaque thread.
+
+Remplacer dans le fichier /etc/mysql/my.cnf
+
+`thread_stack = 128K`
+
+par
+
+`thread_stack = 156K`
+
+Vous pouvez l'ajuster, la documentation mysql dit ceci.
+
+La valeur par défaut de 192 Ko (256 Ko pour les systèmes 64 bits) est suffisamment grande pour un fonctionnement normal. Si la taille de la pile de fil est trop petite, elle limite la complexité des instructions SQL que le serveur peut gérer, la profondeur de récursion des procédures stockées et d'autres actions consommant de la mémoire.
+
+Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_thread_stack)
 
 ## What is MediaDrop?
 
@@ -69,6 +91,28 @@ Play as the service
 `sudo systemctl stop mediadrop.uwsgi`
 `sudo systemctl start mediadrop.uwsgi`
 `sudo systemctl status mediadrop.uwsgi`
+
+### Troubleshooting
+
+If you have this error into syslog file ? 
+
+`Use 'mysqld --thread_stack=#' to specify a bigger stack.")`
+
+This is because the thread_stack option is not high enough. This option manages the stack size for each thread.
+
+Replace into this file /etc/mysql/my.cnf
+
+`thread_stack = 128K`
+
+by
+
+`thread_stack = 156K`
+
+You can adjust it, the mysql documentation says this.
+
+The default of 192KB (256KB for 64-bit systems) is large enough for normal operation. If the thread stack size is too small, it limits the complexity of the SQL statements that the server can handle, the recursion depth of stored procedures, and other memory-consuming actions.
+
+Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_thread_stack)
 
 ### Version 1.0.1 (06/04/17)
 
