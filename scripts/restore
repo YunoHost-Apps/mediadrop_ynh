@@ -55,8 +55,6 @@ db_user=$app
 ynh_mysql_create_db $db_user $db_user $db_pwd
 sudo su -c "mysql -u $db_user -p$db_pwd $app < ./db.sql"
 sudo rm -f "./db.sql"
-sudo sed -i "s@__DB_USER__@$db_user@g" $final_path/config/connect.php
-sudo sed -i "s@__DB_PWD__@$db_pwd@g" $final_path/config/connect.php 
 # fi
 
 # Restore nginx configuration files
