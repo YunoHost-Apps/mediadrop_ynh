@@ -143,7 +143,7 @@ sudo yunohost service add mediadrop
 sudo rm -fr /root/.python-eggs
 
 # Reload Nginx
-sudo service nginx reload
+sudo systemctl reload nginx
 
 # Start mediadrop server
 # sudo paster serve --reload ${final_path}/deployment.ini

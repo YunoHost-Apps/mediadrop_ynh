@@ -31,8 +31,8 @@ final_path=/var/www/$app
 db_name=$app
 
 # Modify Nginx configuration file and copy it to Nginx conf directory
-sed -i "s@__PATHTOCHANGE__@$app@g" ../conf/nginx.conf*
-sed -i "s@__FINALPATH__@$final_path/@g" ../conf/nginx.conf*
+sudo sed -i "s@__PATHTOCHANGE__@$app@g" ../conf/nginx.conf*
+sudo sed -i "s@__FINALPATH__@$final_path/@g" ../conf/nginx.conf*
 
 # If app is public, add url to SSOWat conf as skipped_uris
 if [ $is_public = "Yes" ];
@@ -44,4 +44,4 @@ else
 fi
 
 # Reload Nginx
-sudo service nginx reload
+sudo systemctl reload nginx

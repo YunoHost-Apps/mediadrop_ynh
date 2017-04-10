@@ -66,4 +66,4 @@ sudo cp -a ./php-fpm.conf "$phpfpm_conf"
 sudo cp -a ./php-fpm.ini "$phpfpm_ini"
 
 # Reload services
-sudo service nginx reload
+sudo systemctl reload nginx

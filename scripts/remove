@@ -51,6 +51,6 @@ SECURE_REMOVE '/var/log/$app/'	# Suppression des log
 sudo userdel -f $app
 
 # Reload services
-sudo service nginx reload
+sudo systemctl reload nginx
 
 echo -e "\e[0m"	# Restore normal color
