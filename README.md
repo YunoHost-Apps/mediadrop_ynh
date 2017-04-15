@@ -1,6 +1,11 @@
 # Mediadrop for YunoHost
 
-:warning: Application testing :warning:
+[![Latest Version](https://img.shields.io/badge/version-_--_-green.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/releases)
+[![Status](https://img.shields.io/badge/status-testing-yellow.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/milestones)
+[![Dependencies](https://img.shields.io/badge/dependencies-includes-lightgrey.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh#dependencies)
+[![GitHub license](https://img.shields.io/badge/license-GPLv3-blue.svg?style=flat)](https://raw.githubusercontent.com/YunoHost-Apps/mediadrop_ynh/master/LICENSE)
+[![Yunohost version](https://img.shields.io/badge/yunohost-2.4.2_tested-orange.svg?style=flat)](https://github.com/YunoHost/yunohost)
+[![GitHub issues](https://img.shields.io/github/issues/YunoHost-Apps/mediadrop_ynh.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/issues)
 
 ## Mediadrop c'est quoi ?
 
