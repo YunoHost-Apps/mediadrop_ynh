@@ -75,20 +75,17 @@ sudo su $app -c "virtualenv --distribute --no-site-packages $final_path/venv"
 sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
 
 # Now, activate that virtual environment
-pushd $final_path
-sudo bash -c "source $final_path/venv/bin/activate && pip install uwsgi && python setup.py develop"
+sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
 
 # To create deployment.ini in your current dir
-sudo paster make-config MediaDrop "${final_path}/deployment.ini"
-# Be king rewind
-popd
+sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config MediaDrop ${final_path}/deployment.ini"
 
 # Adapt config Mediadrop
 sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
 sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
 sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
 sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,mysql://username:pass@localhost/dbname,mysql://'${db_user}':'${db_pwd}'@localhost/'${db_user}',' $final_path/deployment.ini
+sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_user}':'${db_pwd}'@localhost/'${db_user}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
 sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
 sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
 sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
@@ -111,7 +108,7 @@ sudo chown root: /etc/systemd/system/mediadrop.service
 sudo sed -i "s@__FINALPATH__@$final_path/@g" /etc/systemd/system/mediadrop.service
 
 # Setup Mediadrop
-sudo paster setup-app "$final_path/deployment.ini"
+sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
 
 # Import fulltext search database triggers
 sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
@@ -127,12 +124,13 @@ fi
 # Reload SSOwat configuration
 sudo yunohost app ssowatconf
 
-# Start uwsgi
 sudo systemctl daemon-reload
-sudo systemctl start mediadrop.uwsgi.service
-sudo systemctl enable mediadrop.uwsgi.service
 
 # Start mediadrop
+sudo systemctl start mediadrop.service
+sudo systemctl enable mediadrop.service
+
+# Start uwsgi
 sudo systemctl start mediadrop.uwsgi.service
 sudo systemctl enable mediadrop.uwsgi.service
 
@@ -144,9 +142,7 @@ sudo rm -fr /root/.python-eggs
 
 # Reload Nginx
 sudo systemctl reload nginx
-
-# Start mediadrop server
-# sudo paster serve --reload ${final_path}/deployment.ini
+sudo systemctl reload mysql
 
 # clean hosts
 sudo sed -i '/#MEDIADROP/d' /etc/hosts

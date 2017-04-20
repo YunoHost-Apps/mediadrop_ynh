@@ -1,7 +1,5 @@
 #!/bin/bash
 
-ynh_version="2.4"
-
 YNH_VERSION () {	# Returns the version number of the Yunohost moulinette
 	ynh_version=$(sudo yunohost -v | grep "moulinette:" | cut -d' ' -f2 | cut -d'.' -f1,2)
 }
@@ -24,7 +22,7 @@ EXIT_PROPERLY () {	# Causes the script to stop in the event of an error. And cle
 	# Compensates the ssowat bug that does not remove the app's input in case of installation error.
 	sudo sed -i "\@\"$domain$path/\":@d" /etc/ssowat/conf.json
 
-	if [ "$ynh_version" = "2.2" ]; then
+	if [ YNH_VERSION = "2.2" ]; then
 		/bin/bash $script_dir/remove
 	fi
 
@@ -127,12 +125,21 @@ CHECK_MD5_CONFIG () {	# Created a backup of the config file if it was changed.
 }
 
 FIND_PORT () {	# Search free port
-	# $1 = Port number to start the search.
-	port=$1
-	while ! sudo yunohost app checkport $port ; do
-		port=$((port+1))
-	done
-	CHECK_VAR "$port" "port empty"
+	if [ YNH_VERSION = "2.5" ]; then
+		# $1 = Port number to start the search.
+		port=$1
+		while ! sudo yunohost app checkport $port ; do
+			port=$((port+1))
+		done
+		CHECK_VAR "$port" "port empty"
+	else
+		# $1 = Port number to start the search.
+		port=$1
+		if [ "$(sudo yunohost tools port-available $port)" = "True" ]; then
+			port=$((port+1))
+		fi
+		CHECK_VAR "$port" "port empty"
+	fi
 }
 
 

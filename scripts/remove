@@ -13,19 +13,34 @@ app=$YNH_APP_INSTANCE_NAME
 # Retrieve app settings
 domain=$(ynh_app_setting_get "$app" domain)
 
-# Stop service
-if [ -e "/etc/systemd/system/mediadrop_uwsgi.service" ]; then
+# Stop uwsgi service
+if [ -e "/etc/systemd/system/mediadrop.uwsgi.service" ]; then
 	echo "Delete systemd script"
-	sudo service mediadrop_uwsgi stop
-	sudo rm "/etc/systemd/system/mediadrop_uwsgi.service"
-	sudo systemctl disable mediadrop_uwsgi.service
+	sudo systemctl stop mediadrop.uwsgi
+	sudo rm "/etc/systemd/system/mediadrop.uwsgi.service"
+	sudo systemctl disable mediadrop.uwsgi.service
 fi
 
 # Delete service on Yunohost monitoring
-if sudo yunohost service status | grep -q mediadrop_uwsgi
+if sudo yunohost service status | grep -q mediadrop.uwsgi
 then
-	echo "Remove mediadrop_uwsgi service"
-	sudo yunohost service remove mediadrop_uwsgi
+	echo "Remove mediadrop.uwsgi service"
+	sudo yunohost service remove mediadrop.uwsgi
+fi
+
+# Stop service
+if [ -e "/etc/systemd/system/mediadrop.service" ]; then
+	echo "Delete systemd script"
+	sudo systemctl stop mediadrop
+	sudo rm "/etc/systemd/system/mediadrop.service"
+	sudo systemctl disable mediadrop.service
+fi
+
+# Delete service on Yunohost monitoring
+if sudo yunohost service status | grep -q mediadrop
+then
+	echo "Remove mediadrop service"
+	sudo yunohost service remove mediadrop
 fi
 
 dbname=$app

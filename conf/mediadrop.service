@@ -9,7 +9,7 @@ Group=root
 RemainAfterExit=yes
 WorkingDirectory=__FINALPATH__
 Environment="PATH=__FINALPATH__venv/bin"
-ExecStart=/usr/local/bin/paster serve --reload __FINALPATH__deployment.ini
+ExecStart=__FINALPATH__/venv/bin/paster serve --reload __FINALPATH__deployment.ini
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill -INT $MAINPID
 Restart=always
