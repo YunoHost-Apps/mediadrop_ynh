@@ -53,13 +53,14 @@
 				"example": "johndoe"
 			},
 			{
-				"name": "is_public",
-				"ask": {
-					"en": "Is it a public MediaDrop site ?",
-					"fr": "Est-ce un site public ?"
-				},
-				"choices": ["Yes", "No"],
-				"default": "Yes"
+                "name": "is_public",
+                "type": "boolean",
+                "ask": {
+                    "en": "Is it a public umap site ?",
+                    "fr": "Est-ce un site public ?"
+                },
+                "choices": ["true", "false"],
+                "default": "true"
 			}
 		]
 	}

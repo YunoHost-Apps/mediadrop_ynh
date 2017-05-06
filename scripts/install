@@ -122,13 +122,10 @@ sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
 echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
 
 # Set ssowat config
-if [ "$is_public" = "No" ];
-then
-	ynh_app_setting_delete $app skipped_uris
+if [[ $is_public -eq 0 ]]; then
+	ynh_app_setting_delete $app unprotected_uris
+	sudo yunohost app ssowatconf
 fi
-
-# Reload SSOwat configuration
-sudo yunohost app ssowatconf
 
 sudo systemctl daemon-reload
 
