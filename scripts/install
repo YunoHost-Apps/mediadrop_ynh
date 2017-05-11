@@ -48,7 +48,7 @@ GENERATE_DB $app	# Create a database and a dedicated user in the app name
 sudo mkdir -p "$final_path/venv"
 ynh_app_setting_set $app final_path $final_path
 # Create user
-sudo useradd -N $app -d /opt/$app/
+sudo useradd -N $app -d $final_path
 
 # Get source
 SETUP_SOURCE
