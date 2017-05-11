@@ -51,8 +51,8 @@ ynh_mysql_drop_user $dbuser
 
 # Remove python app
 # sudo pip uninstall uwsgi
-sudo apt-get remove --purge -y libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
-sudo apt-get remove --purge -y python-setuptools python-virtualenv python-dev python-pip
+# sudo apt-get remove --purge -y libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+# sudo apt-get remove --purge -y python-setuptools python-virtualenv python-dev python-pip
 
 # Delete app directory and configurations
 SECURE_REMOVE '/opt/$app'
