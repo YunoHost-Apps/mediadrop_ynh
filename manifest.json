@@ -59,8 +59,8 @@
                     "en": "Is it a public umap site ?",
                     "fr": "Est-ce un site public ?"
                 },
-                "choices": ["true", "false"],
-                "default": "true"
+                "choices": ["1", "0"],
+                "default": "1"
 			}
 		]
 	}
