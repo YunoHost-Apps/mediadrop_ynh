@@ -53,13 +53,13 @@
 				"example": "johndoe"
 			},
 			{
-                "name": "is_public",
-                "type": "boolean",
-                "ask": {
-                    "en": "Is it a public MediaDrop site ?",
-                    "fr": "Est-ce un site public ?"
-                },
-                "default": "true"
+				"name": "is_public",
+				"type": "boolean",
+				"ask": {
+					"en": "Is it a public MediaDrop site ?",
+					"fr": "Est-ce un site public ?"
+				},
+				"default": "true"
 			}
 		]
 	}
