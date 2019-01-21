@@ -9,7 +9,7 @@ Group=__APP__
 RemainAfterExit=yes
 WorkingDirectory=__FINALPATH__/
 Environment="PATH=__FINALPATH__/venv/bin"
-ExecStart=__FINALPATH__/venv/bin/uwsgi --ini-paste __FINALPATH__/deployment.ini >> /var/log/__APP__/__APP__-uwsgi.log 2>&1
+ExecStart=__FINALPATH__/venv/bin/uwsgi --ini-paste __FINALPATH__/deployment.ini
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill -INT $MAINPID
 Restart=always
