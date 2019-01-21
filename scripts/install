@@ -232,10 +232,10 @@ sudo rm -fr /root/.cache/Python-Eggs
 ###		- And the section "SETUP SYSTEMD" in the upgrade script
 
 # Create a dedicated systemd config
-ynh_add_systemd_config "$app-web" "mediadrop.service"
+ynh_add_systemd_config "$app" "mediadrop.service"
 ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
 
-systemctl start "$app-web" "$app-uwsgi"
+systemctl start "$app" "$app-uwsgi"
 
 
 

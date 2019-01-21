@@ -129,7 +129,7 @@ ynh_use_logrotate --non-append
 #=================================================
 
 # Create a dedicated systemd config
-ynh_add_systemd_config "$app-web" "mediadrop.service"
+ynh_add_systemd_config "$app" "mediadrop.service"
 ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
 
 #=================================================
