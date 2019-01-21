@@ -218,6 +218,11 @@ sudo bash -c "source ${final_path}/venv/bin/activate && paster serve --reload ${
 # Move to script folder
 popd
 
+# Add uwsgi into deployment.ini (end of file)
+sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
+
+sudo rm -fr /root/.python-eggs
+sudo rm -fr /root/.cache/Python-Eggs
 
 #=================================================
 # SETUP SYSTEMD
