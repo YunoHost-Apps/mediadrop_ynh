@@ -38,7 +38,7 @@ How to configure this app: by an admin panel, a plain file with SSH, or any othe
 
 Access the site administration by writing the following address in your browser.
 
-https://www.domain.tld/mediadrop/admin
+https://www.domain.tld/admin
 
 User is "*admin*" and password is "*admin*"
  
@@ -46,7 +46,7 @@ User is "*admin*" and password is "*admin*"
 
 Accéder à l'administration du site en écrivant l'adresse suivante dans votre navigateur.
 
-https://www.domain.tld/mediadrop/admin
+https://www.domain.tld/admin
 
 Le nom d'utilisateur est "*admin*" et le mot de passe "*admin*"
 
