@@ -174,7 +174,7 @@ sudo mkdir -p "$final_path/venv"
 sudo chown -R $app: $final_path
 
 # Create a new virtual environment:
-sudo su $app -c "virtualenv --distribute --no-site-packages $final_path/venv"
+sudo -u $app virtualenv --distribute --no-site-packages $final_path/venv
 
 # Prepare mediacore to be installed
 sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
