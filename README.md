@@ -13,6 +13,10 @@ MediaDrop est la solution idéale pour les personnes ou organisations souhaitant
 
 **Shipped version:** 0.10.3
 
+## Licence
+
+LICENSE GPL-3.0
+
 ## Screenshots
 
 ![](Link to an screenshot for this app)
