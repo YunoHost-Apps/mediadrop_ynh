@@ -20,8 +20,9 @@ path_url=$(ynh_app_setting_get $app path)
 admin=$(ynh_app_setting_get $app admin)
 is_public=$(ynh_app_setting_get $app is_public)
 final_path=$(ynh_app_setting_get $app final_path)
-language=$(ynh_app_setting_get $app language)
 db_name=$(ynh_app_setting_get $app db_name)
+db_pwd=$(ynh_app_setting_get $app db_pwd)
+port=$(ynh_app_setting_get $app port)
 
 #=================================================
 # ENSURE DOWNWARD COMPATIBILITY
@@ -110,6 +111,61 @@ ynh_system_user_create $app  $final_path
 #=================================================
 # ...
 #=================================================
+
+# Delete the old environnement
+sudo rm -rf "$final_path/venv"
+
+# Creates the directory for Python Virtual Environment.
+sudo mkdir -p "$final_path/venv"
+
+# Set permissions mediadrop directory
+sudo chown -R $app: $final_path
+
+# Create a new virtual environment:
+sudo -u $app virtualenv --distribute --no-site-packages $final_path/venv
+
+
+# Prepare mediacore to be upgarded
+sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
+
+# Move to final_path
+pushd ${final_path}
+
+# Now, activate that virtual environment
+sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
+
+# To create Basic Configuration File deployment.ini in your current dir
+sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config mediacore ${final_path}/deployment.ini"
+
+# Adapt config Mediadrop
+sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
+sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
+sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin}'@'${domain}',' $final_path/deployment.ini
+sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin}'@'${domain}',' $final_path/deployment.ini
+sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_name}':'${db_pwd}'@localhost/'${db_name}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
+sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
+sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
+sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
+sudo sed -i 's,enable_gzip = true,enable_gzip = false,' $final_path/deployment.ini
+sudo sed -i 's,static_files = false,static_files = true,' $final_path/deployment.ini
+sudo sed -i "s,cache_dir = %(here)s/data,cache_dir = $final_path/data/," $final_path/deployment.ini
+sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/images/," $final_path/deployment.ini
+sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
+sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
+
+# Load Initial Data
+sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
+
+# Move to script folder
+popd
+
+
+# Add uwsgi into deployment.ini (end of file)
+sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
+
+sudo rm -fr /root/.python-eggs
+sudo rm -fr /root/.cache/Python-Eggs
+
 
 ### Verify the checksum of a file, stored by `ynh_store_file_checksum` in the install script.
 ### And create a backup of this file if the checksum is different. So the file will be backed up if the admin had modified it.
