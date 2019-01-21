@@ -184,7 +184,7 @@ sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && pyt
 popd
 
 pushd ${final_path}/../
-# To create deployment.ini in your current dir
+# To create Basic Configuration File deployment.ini in your current dir
 sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config $app ${final_path}/deployment.ini"
 popd
 
@@ -205,11 +205,19 @@ sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/ima
 sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
 sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
 
+# Load Initial Data
+sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
+
+# Import fulltext search database triggers
+sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
+
+
+# Launch the Built-in Server
+sudo bash -c "source ${final_path}/venv/bin/activate && paster serve --reload ${final_path}/deployment.ini"
+
 # Move to script folder
 popd
 
-# Add uwsgi into deployment.ini (end of file)
-sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
 
 #=================================================
 # SETUP SYSTEMD
@@ -232,15 +240,13 @@ ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
 
 systemctl start "$app-web" "$app-uwsgi"
 
-# Setup Mediadrop
-sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
 
-# Import fulltext search database triggers
-sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
 
-echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
 
-sudo rm -fr /root/.python-eggs
+
+#echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
+
+#sudo rm -fr /root/.python-eggs
 
 #=================================================
 # SETUP APPLICATION WITH CURL
