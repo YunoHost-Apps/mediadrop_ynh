@@ -1,71 +1,120 @@
 #!/bin/bash
 
-# Exit on command errors and treat unset variables as an error
-set -u
+#=================================================
+# GENERIC START
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
 
-source .fonctions	# Loads the generic functions usually used in the script
-# Source app helpers
+source _common.sh
 source /usr/share/yunohost/helpers
 
-# Get multi-instances specific variables
+#=================================================
+# LOAD SETTINGS
+#=================================================
+
 app=$YNH_APP_INSTANCE_NAME
 
-# Retrieve app settings
-domain=$(ynh_app_setting_get "$app" domain)
+domain=$(ynh_app_setting_get $app domain)
+port=$(ynh_app_setting_get $app port)
+db_name=$(ynh_app_setting_get $app db_name)
+db_user=$db_name
+final_path=$(ynh_app_setting_get $app final_path)
 
-# Stop uwsgi service
-if [ -e "/etc/systemd/system/mediadrop.uwsgi.service" ]; then
-	echo "Delete systemd script"
-	sudo systemctl stop mediadrop.uwsgi
-	sudo rm "/etc/systemd/system/mediadrop.uwsgi.service"
-	sudo systemctl disable mediadrop.uwsgi.service
-fi
+#=================================================
+# STANDARD REMOVE
+#=================================================
+# STOP AND REMOVE SERVICE
+#=================================================
 
-# Delete service on Yunohost monitoring
-if sudo yunohost service status | grep -q mediadrop.uwsgi
+# Remove the dedicated systemd config
+ynh_remove_systemd_config "$app"
+ynh_remove_systemd_config "$app-uwsgi"
+
+#=================================================
+# REMOVE SERVICE FROM ADMIN PANEL
+#=================================================
+
+# Remove a service from the admin panel, added by `yunohost service add`
+#if yunohost service status | grep -q $app
+#then
+#	echo "Remove $app service"
+#	yunohost service remove $app
+#fi
+
+#=================================================
+# REMOVE DEPENDENCIES
+#=================================================
+
+# Remove metapackage and its dependencies
+ynh_remove_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+ynh_remove_app_dependencies python-setuptools python-virtualenv
+
+#=================================================
+# REMOVE THE MYSQL DATABASE
+#=================================================
+
+# Remove a database if it exists, along with the associated user
+ynh_mysql_remove_db $db_user $db_name
+
+#=================================================
+# REMOVE APP MAIN DIR
+#=================================================
+
+# Remove the app directory securely
+ynh_secure_remove "$final_path"
+
+#=================================================
+# REMOVE NGINX CONFIGURATION
+#=================================================
+
+# Remove the dedicated nginx config
+ynh_remove_nginx_config
+
+#=================================================
+# REMOVE PHP-FPM CONFIGURATION
+#=================================================
+
+# Remove the dedicated php-fpm config
+#ynh_remove_fpm_config
+
+#=================================================
+# REMOVE LOGROTATE CONFIGURATION
+#=================================================
+
+# Remove the app-specific logrotate config
+ynh_remove_logrotate
+
+#=================================================
+# CLOSE A PORT
+#=================================================
+
+if yunohost firewall list | grep -q "\- $port$"
 then
-	echo "Remove mediadrop.uwsgi service"
-	sudo yunohost service remove mediadrop.uwsgi
+	echo "Close port $port" >&2
+	yunohost firewall disallow TCP $port 2>&1
 fi
 
-# Stop service
-if [ -e "/etc/systemd/system/mediadrop.service" ]; then
-	echo "Delete systemd script"
-	sudo systemctl stop mediadrop
-	sudo rm "/etc/systemd/system/mediadrop.service"
-	sudo systemctl disable mediadrop.service
-fi
+#=================================================
+# SPECIFIC REMOVE
+#=================================================
+# REMOVE THE CRON FILE
+#=================================================
 
-# Delete service on Yunohost monitoring
-if sudo yunohost service status | grep -q mediadrop
-then
-	echo "Remove mediadrop service"
-	sudo yunohost service remove mediadrop
-fi
+# Remove a cron file
+ynh_secure_remove "/etc/cron.d/$app"
 
-dbname=$app
-dbuser=$app
-dbpass=$(ynh_app_setting_get "$app" mysqlpwd)
-ynh_mysql_drop_db $dbname
-ynh_mysql_drop_user $dbuser
+# Remove a directory securely
+ynh_secure_remove "/etc/$app/"
 
-# Remove python app
-# sudo pip uninstall uwsgi
-# sudo apt-get remove --purge -y libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
-# sudo apt-get remove --purge -y python-setuptools python-virtualenv python-dev python-pip
+# Remove the log files
+ynh_secure_remove "/var/log/$app/"
 
-# Delete app directory and configurations
-SECURE_REMOVE '/opt/$app'
-[[ -n $domain ]] && sudo rm -f "/etc/nginx/conf.d/${domain}.d/${app}.conf"
+#=================================================
+# GENERIC FINALIZATION
+#=================================================
+# REMOVE DEDICATED USER
+#=================================================
 
-REMOVE_NGINX_CONF	# Suppression de la configuration nginx
-
-SECURE_REMOVE '/var/log/$app/'	# Suppression des log
-
-# Remove user
-sudo userdel -f $app
-
-# Reload services
-sudo systemctl reload nginx
-
-echo -e "\e[0m"	# Restore normal color
+# Delete a system user
+ynh_system_user_delete $app

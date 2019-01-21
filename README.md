@@ -1,27 +1,44 @@
 # Mediadrop for YunoHost
 
-[![Latest Version](https://img.shields.io/badge/version-_--_-green.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/releases)
-[![Status](https://img.shields.io/badge/status-testing-yellow.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/milestones)
-[![Dependencies](https://img.shields.io/badge/dependencies-includes-lightgrey.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh#dependencies)
-[![GitHub license](https://img.shields.io/badge/license-GPLv3-blue.svg?style=flat)](https://raw.githubusercontent.com/YunoHost-Apps/mediadrop_ynh/master/LICENSE)
-[![Yunohost version](https://img.shields.io/badge/yunohost-2.4.2_tested-orange.svg?style=flat)](https://github.com/YunoHost/yunohost)
-[![GitHub issues](https://img.shields.io/github/issues/YunoHost-Apps/mediadrop_ynh.svg?style=flat)](https://github.com/YunoHost-Apps/mediadrop_ynh/issues)
+[![Integration level](https://dash.yunohost.org/integration/REPLACEBYYOURAPP.svg)](https://dash.yunohost.org/appci/app/REPLACEBYYOURAPP)  
+[![Install REPLACEBYYOURAPP with YunoHost](https://install-app.yunohost.org/install-with-yunohost.png)](https://install-app.yunohost.org/?app=REPLACEBYYOURAPP)
 
-## Mediadrop c'est quoi ?
+> *This package allow you to install REPLACEBYYOURAPP quickly and simply on a YunoHost server.  
+If you don't have YunoHost, please see [here](https://yunohost.org/#/install) to know how to install and enjoy it.*
 
-MediaDrop est la solution idéale pour les personnes ou organisations souhaitant diffuser de la vidéo ou de l'audio.
+## Overview
+MediaDrop provides unparalleled organization, statistics, accessibility, and scalability. Well-designed and well-engineered it is the ideal solution for any organization with large collections of video or audio.
 
-Source: [mediadrop.video](http://mediadrop.video/)
+MediaDrop est la solution idéale pour les personnes ou organisations souhaitant diffuser de la vidéo ou de l'audio..
 
-### Installation
+**Shipped version:** 0.10.3
 
-`$ sudo yunohost app install https://github.com/YunoHost-Apps/mediadrop_ynh.git`
+## Screenshots
 
-### Mise à jour
+![](Link to an screenshot for this app)
 
-`$ sudo yunohost app upgrade --verbose mediadrop -u https://github.com/YunoHost-Apps/mediadrop_ynh.git`
+## Demo
 
-### Utilisation
+* [Official demo](Link to a demo site for this app)
+
+## Configuration
+
+How to configure this app: by an admin panel, a plain file with SSH, or any other way.
+
+## Documentation
+
+ * Official documentation: Link to the official documentation of this app
+ * YunoHost documentation: If specific documentation is needed, feel free to contribute.
+
+## Use
+
+Access the site administration by writing the following address in your browser.
+
+https://www.domain.tld/mediadrop/admin
+
+User is "*admin*" and password is "*admin*"
+ 
+## Utilisation
 
 Accéder à l'administration du site en écrivant l'adresse suivante dans votre navigateur.
 
@@ -29,57 +46,23 @@ https://www.domain.tld/mediadrop/admin
 
 Le nom d'utilisateur est "*admin*" et le mot de passe "*admin*"
 
-## Fonctionnalité pour MediaDrop
 
-Jouer avec les services
+## YunoHost specific features
 
-#### Relancer MediaDrop
+#### Multi-users support
 
-`sudo systemctl stop mediadrop`
-`sudo systemctl start mediadrop`
-`sudo systemctl status mediadrop`
+Are LDAP and HTTP auth supported?
+Can the app be used by multiple users?
 
-#### Relancer uWSGI
+#### Supported architectures
 
-`sudo systemctl stop mediadrop.uwsgi`
-`sudo systemctl start mediadrop.uwsgi`
-`sudo systemctl status mediadrop.uwsgi`
+* x86-64b - [![Build Status](https://ci-apps.yunohost.org/ci/logs/REPLACEBYYOURAPP%20%28Community%29.svg)](https://ci-apps.yunohost.org/ci/apps/REPLACEBYYOURAPP/)
+* ARMv8-A - [![Build Status](https://ci-apps-arm.yunohost.org/ci/logs/REPLACEBYYOURAPP%20%28Community%29.svg)](https://ci-apps-arm.yunohost.org/ci/apps/REPLACEBYYOURAPP/)
+* Jessie x86-64b - [![Build Status](https://ci-stretch.nohost.me/ci/logs/REPLACEBYYOURAPP%20%28Community%29.svg)](https://ci-stretch.nohost.me/ci/apps/REPLACEBYYOURAPP/)
 
-### Problème rencontré
+## Limitations
 
-Si vous rencontez cette erreur dans le fichier syslog ? 
-
-`Use 'mysqld --thread_stack=#' to specify a bigger stack.")`
-
-C'est que l'option thread_stack n'est pas assez élevé. Cette option de gérer la taille de la pile pour chaque thread.
-
-Remplacer dans le fichier /etc/mysql/my.cnf
-
-`thread_stack = 128K`
-
-par
-
-`thread_stack = 156K`
-
-Vous pouvez l'ajuster, la documentation mysql dit ceci.
-
-La valeur par défaut de 192 Ko (256 Ko pour les systèmes 64 bits) est suffisamment grande pour un fonctionnement normal. Si la taille de la pile de fil est trop petite, elle limite la complexité des instructions SQL que le serveur peut gérer, la profondeur de récursion des procédures stockées et d'autres actions consommant de la mémoire.
-
-Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_thread_stack)
-
-## What is MediaDrop?
-
-MediaDrop provides unparalleled organization, statistics, accessibility, and scalability. Well-designed and well-engineered it is the ideal solution for any organization with large collections of video or audio.
-
-Source: [mediadrop.video](http://mediadrop.video/)
-
-### Use
-
-Access the site administration by writing the following address in your browser.
-
-https://www.domain.tld/mediadrop/admin
-
-User is "*admin*" and password is "*admin*"
+* Any known limitations.
 
 ## Features for Yunohost app
 
@@ -119,10 +102,68 @@ The default of 192KB (256KB for 64-bit systems) is large enough for normal opera
 
 Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_thread_stack)
 
-### Version 1.0.1 (06/04/17)
+## Fonctionnalité pour MediaDrop
 
-- Install work fine
+Jouer avec les services
 
-### Version 1.0.0 (13/03/17)
+#### Relancer MediaDrop
 
-- Create script install
+`sudo systemctl stop mediadrop`
+`sudo systemctl start mediadrop`
+`sudo systemctl status mediadrop`
+
+#### Relancer uWSGI
+
+`sudo systemctl stop mediadrop.uwsgi`
+`sudo systemctl start mediadrop.uwsgi`
+`sudo systemctl status mediadrop.uwsgi`
+
+### Problème rencontré
+
+Si vous rencontez cette erreur dans le fichier syslog ? 
+
+`Use 'mysqld --thread_stack=#' to specify a bigger stack.")`
+
+C'est que l'option thread_stack n'est pas assez élevé. Cette option de gérer la taille de la pile pour chaque thread.
+
+Remplacer dans le fichier /etc/mysql/my.cnf
+
+`thread_stack = 128K`
+
+par
+
+`thread_stack = 156K`
+
+Vous pouvez l'ajuster, la documentation mysql dit ceci.
+
+La valeur par défaut de 192 Ko (256 Ko pour les systèmes 64 bits) est suffisamment grande pour un fonctionnement normal. Si la taille de la pile de fil est trop petite, elle limite la complexité des instructions SQL que le serveur peut gérer, la profondeur de récursion des procédures stockées et d'autres actions consommant de la mémoire.
+
+Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_thread_stack)
+
+## Additional information
+
+* Other information you would add about this application
+
+**More information on the documentation page:**  
+https://yunohost.org/packaging_apps
+
+## Links
+
+ * Report a bug: https://github.com/YunoHost-Apps/REPLACEBYYOURAPP_ynh/issues
+ * App website: [mediadrop.video](http://mediadrop.video/)
+ * YunoHost website: https://yunohost.org/
+
+---
+
+Developers info
+----------------
+
+**Only if you want to use a testing branch for coding, instead of merging directly into master.**
+Please do your pull request to the [testing branch](https://github.com/YunoHost-Apps/REPLACEBYYOURAPP_ynh/tree/testing).
+
+To try the testing branch, please proceed like that.
+```
+sudo yunohost app install https://github.com/YunoHost-Apps/REPLACEBYYOURAPP_ynh/tree/testing --debug
+or
+sudo yunohost app upgrade REPLACEBYYOURAPP -u https://github.com/YunoHost-Apps/REPLACEBYYOURAPP_ynh/tree/testing --debug
+```

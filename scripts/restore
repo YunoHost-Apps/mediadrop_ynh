@@ -1,84 +1,129 @@
 #!/bin/bash
 
-# Exit on command errors and treat unset variables as an error
-set -eu
+#=================================================
+# GENERIC START
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
 
-# The parameter $app is the id of the app instance ex: ynhexample__2
-app=$YNH_APP_INSTANCE_NAME
-
-# Source app helpers
+source ../settings/scripts/_common.sh
 source /usr/share/yunohost/helpers
 
-# Get old parameter of the app
+#=================================================
+# MANAGE SCRIPT FAILURE
+#=================================================
+
+ynh_clean_setup () {
+	#### Remove this function if there's nothing to clean before calling the remove script.
+	true
+}
+# Exit if an error occurs during the execution of the script
+ynh_abort_if_errors
+
+#=================================================
+# LOAD SETTINGS
+#=================================================
+
+app=$YNH_APP_INSTANCE_NAME
+
 domain=$(ynh_app_setting_get $app domain)
-path=$(ynh_app_setting_get $app path)
-is_public=$(ynh_app_setting_get $app is_public)
-# with_mysql=$(ynh_app_setting_get "$app" with_mysql)
+path_url=$(ynh_app_setting_get $app path)
+final_path=$(ynh_app_setting_get $app final_path)
+db_name=$(ynh_app_setting_get $app db_name)
 
-# Check domain/path availability
-sudo yunohost app checkurl "${domain}${path}" -a "$app" \
-    || ynh_die "Path not available: ${domain}${path}"
+#=================================================
+# CHECK IF THE APP CAN BE RESTORED
+#=================================================
 
-# Check $final_path
-final_path="/var/www/${app}"
-if [ -d $final_path ]; then
-	ynh_die "There is already a directory: $final_path"
-fi
+ynh_webpath_available $domain $path_url \
+	|| ynh_die "Path not available: ${domain}${path_url}"
+test ! -d $final_path \
+	|| ynh_die "There is already a directory: $final_path "
 
-# Check configuration files nginx
-nginx_conf="/etc/nginx/conf.d/${domain}.d/${app}.conf"
-if [ -f $nginx_conf ]; then
-	ynh_die "The NGINX configuration already exists at '${nginx_conf}'. You should safely delete it before restoring this app."
-fi
+#=================================================
+# STANDARD RESTORATION STEPS
+#=================================================
+# RESTORE THE NGINX CONFIGURATION
+#=================================================
 
-# Restore services
-mediadrop_systemd="/etc/systemd/system/${app}.service"
-if [ -f "${mediadrop_systemd}" ]; then
-	ynh_die "The MEDIADROP configuration already exists at '${mediadrop_systemd}'. 
-	You should safely delete it before restoring this app."
-fi
-mediadrop_uwsgi_systemd="/etc/systemd/system/${app}.uwsgi.service"
-if [ -f "${mediadrop_uwsgi_systemd}" ]; then
-	ynh_die "The MEDIADROP UWSGI configuration already exists at '${mediadrop_uwsgi_systemd}'. 
-	You should safely delete it before restoring this app."
-fi
+ynh_restore_file "/etc/nginx/conf.d/$domain.d/$app.conf"
 
-# Create user
-sudo useradd -N $app -d /opt/$app/
+#=================================================
+# RESTORE THE APP MAIN DIR
+#=================================================
 
- # Restore sources & data
-sudo cp -a ./sources "$final_path"
+ynh_restore_file "$final_path"
 
-# Set permissions
-sudo chown -R $app: "$final_path"
+#=================================================
+# RESTORE THE MYSQL DATABASE
+#=================================================
 
-# Restore db
-# if [[ $with_mysql -eq 1 ]]; then
 db_pwd=$(ynh_app_setting_get $app mysqlpwd)
-db_user=$app
-ynh_mysql_create_db $db_user $db_user $db_pwd
-sudo su -c "mysql -u $db_user -p$db_pwd $app < ./db.sql"
-# fi
+ynh_mysql_setup_db $db_name $db_name $db_pwd
+ynh_mysql_connect_as $db_name $db_pwd $db_name < ./db.sql
 
-# Restore nginx configuration files
-sudo cp -a ./nginx.conf   "$nginx_conf"
+#=================================================
+# RECREATE THE DEDICATED USER
+#=================================================
 
-# Restore services
-sudo cp ../conf/mediadrop.service /etc/systemd/system/mediadrop.service
-sudo chown root: /etc/systemd/system/mediadrop.service
-sudo cp ../conf/mediadrop.uwsgi.service /etc/systemd/system/mediadrop.uwsgi.service
-sudo chown root: /etc/systemd/system/mediadrop.uwsgi.service
+# Create the dedicated user (if not existing)
+ynh_system_user_create $app $final_path
 
-# Enable & start services
-sudo systemctl daemon-reload
-sudo systemctl enable /etc/systemd/system/mediadrop.service
-sudo systemctl enable /etc/systemd/system/mediadrop.uwsgi.service
-sudo systemctl start mediadrop.service
-sudo systemctl start mediadrop.uwsgi.service
+#=================================================
+# RESTORE USER RIGHTS
+#=================================================
 
-# Add service YunoHost
-sudo yunohost service add mediadrop
-sudo yunohost service add mediadrop.uwsgi
+# Restore permissions on app files
+chown -R root: $final_path
 
-# Reload services
-sudo systemctl reload nginx
+#=================================================
+# RESTORE THE PHP-FPM CONFIGURATION
+#=================================================
+
+#ynh_restore_file "/etc/php5/fpm/pool.d/$app.conf"
+
+#=================================================
+# SPECIFIC RESTORATION
+#=================================================
+# REINSTALL DEPENDENCIES
+#=================================================
+
+# Define and install dependencies
+ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+ynh_install_app_dependencies python-setuptools python-virtualenv
+
+#=================================================
+# ADVERTISE SERVICE IN ADMIN PANEL
+#=================================================
+
+#yunohost service add $app --log "/var/log/$app/APP.log"
+
+#=================================================
+# RESTORE SYSTEMD
+#=================================================
+
+ynh_restore_file "/etc/systemd/system/$app.service"
+ynh_restore_file "/etc/systemd/system/$app-uwsgi.service"
+systemctl enable $app.service
+systemctl enable $app-uwsgi.service
+
+#=================================================
+# RESTORE THE CRON FILE
+#=================================================
+
+ynh_restore_file "/etc/cron.d/$app"
+
+#=================================================
+# RESTORE THE LOGROTATE CONFIGURATION
+#=================================================
+
+ynh_restore_file "/etc/logrotate.d/$app"
+
+#=================================================
+# GENERIC FINALIZATION
+#=================================================
+# RELOAD NGINX AND PHP-FPM
+#=================================================
+
+#systemctl reload php5-fpm
+systemctl reload nginx

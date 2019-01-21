@@ -1,0 +1,6 @@
+SOURCE_URL=https://mediadrop.video/releases/MediaCore-0.10.3.tar.gz
+SOURCE_SUM=e569ae36dfef7ee60add8f2040cee4c67bda9b0c9d9faedf89db93715759ef82
+SOURCE_SUM_PRG=sha256sum
+SOURCE_FORMAT=tar.gz
+SOURCE_IN_SUBDIR=true
+SOURCE_FILENAME=

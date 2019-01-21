@@ -6,7 +6,7 @@
 		"en": "Mediadrop - The Web’s Open Source Video Platform",
 		"fr": "Mediadrop - Plateforme web vidéo Open Source"
 	},
-	"version": "1.1.0",
+	"version": "0.10.3~ynh1",
 	"url": "http://mediadrop.video/",
 	"license": "free",
 	"maintainer": {
@@ -14,7 +14,7 @@
 		"email": "cyp@rouquin.me"
 	},
 	"requirements": {
-		"yunohost": ">> 2.4.0"
+        "yunohost": ">= 2.7.14"
 	},
 	"multi_instance": false,
 	"services": [
@@ -31,7 +31,7 @@
 					"en": "Choose a domain name for MediaDrop",
 					"fr": "Choisissez un nom de domaine pour MediaDrop"
 				},
-				"example": "example.org"
+                "example": "example.com"
 			},
 			{
 				"name": "path",
@@ -46,20 +46,20 @@
 			{
 				"name": "admin",
 				"type": "user",
-				"ask": {
-					"en": "Choose the MediaDrop administrator (must be an existing YunoHost user)",
-					"fr": "Administrateur du site (doit être un utilisateur YunoHost existant)"
-				},
+                "ask": {
+                    "en": "Choose an admin user",
+                    "fr": "Choisissez l’administrateur"
+                },
 				"example": "johndoe"
 			},
-			{
-				"name": "is_public",
-				"type": "boolean",
-				"ask": {
-					"en": "Is it a public MediaDrop site ?",
-					"fr": "Est-ce un site public ?"
-				},
-				"default": "true"
+            {
+                "name": "is_public",
+                "type": "boolean",
+                "ask": {
+                    "en": "Is it a public application?",
+                    "fr": "Est-ce une application publique ?"
+                },
+                "default": true
 			}
 		]
 	}

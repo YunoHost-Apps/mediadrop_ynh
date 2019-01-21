@@ -1,53 +1,159 @@
 #!/bin/bash
 
-# Exit on command errors and treat unset variables as an error
-set -eu
+#=================================================
+# GENERIC START
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
 
-source .fonctions	# Loads the generic functions usually used in the script
-source /usr/share/yunohost/helpers # Source YunoHost helpers
+source _common.sh
+source /usr/share/yunohost/helpers
 
-# See comments in install script
+#=================================================
+# LOAD SETTINGS
+#=================================================
+
 app=$YNH_APP_INSTANCE_NAME
 
-# Retrieve app settings
-domain=$(ynh_app_setting_get "$app" domain)
-path=$(ynh_app_setting_get "$app" path)
-admin=$(ynh_app_setting_get "$app" admin)
-is_public=$(ynh_app_setting_get "$app" is_public)
-language=$(ynh_app_setting_get "$app" language)
+domain=$(ynh_app_setting_get $app domain)
+path_url=$(ynh_app_setting_get $app path)
+admin=$(ynh_app_setting_get $app admin)
+is_public=$(ynh_app_setting_get $app is_public)
+final_path=$(ynh_app_setting_get $app final_path)
+language=$(ynh_app_setting_get $app language)
+db_name=$(ynh_app_setting_get $app db_name)
 
-CHECK_PATH	# Checks and corrects the syntax of the path.
+#=================================================
+# ENSURE DOWNWARD COMPATIBILITY
+#=================================================
 
-# Check if admin is not null
-if [[ "$admin" = "" || "$is_public" = "" || "$language" = "" ]]; then
-    echo "Unable to upgrade, please contact support"
-    ynh_die
-fi
-
-root_pwd=$(sudo cat /etc/yunohost/mysql)
-
-final_path=/var/www/$app
-
-db_name=$app
-
-# Modify Nginx configuration file and copy it to Nginx conf directory
-sudo sed -i "s@__PATHTOCHANGE__@$app@g" ../conf/nginx.conf*
-sudo sed -i "s@__FINALPATH__@$final_path/@g" ../conf/nginx.conf*
-
-sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
-
-# If app is public, add url to SSOWat conf as skipped_uris
-if [ $is_public = "Yes" ];
-then
-	ynh_app_setting_set $app is_public 1 # Fix booléen is_public
+# Fix is_public as a boolean value
+if [ "$is_public" = "Yes" ]; then
+	ynh_app_setting_set $app is_public 1
 	is_public=1
-else
+elif [ "$is_public" = "No" ]; then
 	ynh_app_setting_set $app is_public 0
- 	is_public=0
+	is_public=0
 fi
 
-# Reload ssowat
-sudo yunohost app ssowatconf
+# If db_name doesn't exist, create it
+if [ -z $db_name ]; then
+	db_name=$(ynh_sanitize_dbid $app)
+	ynh_app_setting_set $app db_name $db_name
+fi
 
-# Reload Nginx
-sudo systemctl reload nginx
+# If final_path doesn't exist, create it
+if [ -z $final_path ]; then
+	final_path=/var/www/$app
+	ynh_app_setting_set $app final_path $final_path
+fi
+
+#=================================================
+# BACKUP BEFORE UPGRADE THEN ACTIVE TRAP
+#=================================================
+
+# Backup the current version of the app
+ynh_backup_before_upgrade
+ynh_clean_setup () {
+	# restore it if the upgrade fails
+	ynh_restore_upgradebackup
+}
+# Exit if an error occurs during the execution of the script
+ynh_abort_if_errors
+
+#=================================================
+# CHECK THE PATH
+#=================================================
+
+# Normalize the URL path syntax
+path_url=$(ynh_normalize_url_path $path_url)
+
+#=================================================
+# STANDARD UPGRADE STEPS
+#=================================================
+# DOWNLOAD, CHECK AND UNPACK SOURCE
+#=================================================
+
+# Download, check integrity, uncompress and patch the source from app.src
+ynh_setup_source "$final_path"
+
+#=================================================
+# NGINX CONFIGURATION
+#=================================================
+
+# Create a dedicated nginx config
+ynh_add_nginx_config
+
+#=================================================
+# UPGRADE DEPENDENCIES
+#=================================================
+
+ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+ynh_install_app_dependencies python-setuptools python-virtualenv
+
+#=================================================
+# CREATE DEDICATED USER
+#=================================================
+
+# Create a dedicated user (if not existing)
+ynh_system_user_create $app  $final_path
+
+#=================================================
+# PHP-FPM CONFIGURATION
+#=================================================
+
+# Create a dedicated php-fpm config
+#ynh_add_fpm_config
+
+#=================================================
+# SPECIFIC UPGRADE
+#=================================================
+# ...
+#=================================================
+
+### Verify the checksum of a file, stored by `ynh_store_file_checksum` in the install script.
+### And create a backup of this file if the checksum is different. So the file will be backed up if the admin had modified it.
+ynh_backup_if_checksum_is_different "$final_path/CONFIG_FILE"
+# Recalculate and store the checksum of the file for the next upgrade.
+ynh_store_file_checksum "$final_path/CONFIG_FILE"
+
+#=================================================
+# SETUP LOGROTATE
+#=================================================
+
+# Use logrotate to manage app-specific logfile(s)
+ynh_use_logrotate --non-append
+
+#=================================================
+# SETUP SYSTEMD
+#=================================================
+
+# Create a dedicated systemd config
+ynh_add_systemd_config "$app-web" "mediadrop.service"
+ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
+
+#=================================================
+# GENERIC FINALIZATION
+#=================================================
+# SECURE FILES AND DIRECTORIES
+#=================================================
+
+# Set permissions on app files
+chown -R root: $final_path
+
+#=================================================
+# SETUP SSOWAT
+#=================================================
+
+# Make app public if necessary
+if [ $is_public -eq 1 ]
+then
+	# unprotected_uris allows SSO credentials to be passed anyway
+	ynh_app_setting_set $app unprotected_uris "/"
+fi
+
+#=================================================
+# RELOAD NGINX
+#=================================================
+
+systemctl reload nginx
