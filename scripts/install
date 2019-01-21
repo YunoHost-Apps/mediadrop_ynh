@@ -205,7 +205,7 @@ sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $f
 sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
 
 # Import fulltext search database triggers
-sudo mysql -u $db_name -p $db_pwd $app < "${final_path}/setup_triggers.sql"
+sudo mysql -u $db_name -p$db_pwd $app < "${final_path}/setup_triggers.sql"
 
 # Move to script folder
 popd
