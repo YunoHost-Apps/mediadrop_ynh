@@ -47,7 +47,7 @@ ynh_remove_systemd_config "$app-uwsgi"
 #=================================================
 
 # Remove metapackage and its dependencies
-ynh_remove_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+ynh_remove_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev default-libmysqlclient-dev python-dev
 ynh_remove_app_dependencies python-setuptools python-virtualenv
 
 #=================================================

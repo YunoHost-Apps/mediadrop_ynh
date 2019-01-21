@@ -88,7 +88,7 @@ ynh_add_nginx_config
 # UPGRADE DEPENDENCIES
 #=================================================
 
-ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev python-dev
+ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev default-libmysqlclient-dev python-dev
 ynh_install_app_dependencies python-setuptools python-virtualenv
 
 #=================================================

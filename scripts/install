@@ -92,11 +92,8 @@ ynh_app_setting_set $app port $port
 ###		- As well as the section "REINSTALL DEPENDENCIES" in the restore script
 ###		- And the section "UPGRADE DEPENDENCIES" in the upgrade script
 
-ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev python-dev
+ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev python-dev default-libmysqlclient-dev
 ynh_install_app_dependencies python-setuptools python-virtualenv
-
-#Other dependencies not available :
-#ynh_install_app_dependencies libmysqlclient-dev
 
 #=================================================
 # CREATE A MYSQL DATABASE
