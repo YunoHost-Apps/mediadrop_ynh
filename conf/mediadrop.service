@@ -4,8 +4,8 @@ Requires=network.target
 After=network.target
 
 [Service]
-User=__APP__
-Group=__APP__
+User=root
+Group=root
 RemainAfterExit=yes
 WorkingDirectory=__FINALPATH__/
 Environment="PATH=__FINALPATH__/venv/bin"
