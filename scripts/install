@@ -237,10 +237,6 @@ ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
 
 systemctl start "$app" "$app-uwsgi"
 
-
-
-
-
 #echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
 
 #sudo rm -fr /root/.python-eggs
