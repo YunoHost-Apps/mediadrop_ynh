@@ -182,8 +182,10 @@ pushd ${final_path}
 # Now, activate that virtual environment
 sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
 
+sudo bash -c "source ${final_path}/venv/bin/activate && cd .."
+
 # To create deployment.ini in your current dir
-sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config MediaDrop ${final_path}/deployment.ini"
+sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config $app ${final_path}/deployment.ini"
 
 # Adapt config Mediadrop
 sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
