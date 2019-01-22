@@ -213,3 +213,6 @@ fi
 #=================================================
 
 systemctl reload nginx
+
+systemctl restart $app.service
+systemctl restart $app-uwsgi.service
