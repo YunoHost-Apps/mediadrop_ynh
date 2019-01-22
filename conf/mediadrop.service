@@ -7,9 +7,9 @@ After=network.target
 User=root
 Group=root
 RemainAfterExit=yes
-WorkingDirectory=__FINALPATH__
-Environment="PATH=__FINALPATH__venv/bin"
-ExecStart=__FINALPATH__/venv/bin/paster serve --reload __FINALPATH__deployment.ini
+WorkingDirectory=__FINALPATH__/
+Environment="PATH=__FINALPATH__/venv/bin"
+ExecStart=__FINALPATH__/venv/bin/paster serve --reload __FINALPATH__/deployment.ini
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill -INT $MAINPID
 Restart=always

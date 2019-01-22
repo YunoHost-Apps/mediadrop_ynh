@@ -1,0 +1,6 @@
+SOURCE_URL=https://github.com/mediadrop/mediadrop/archive/v0.10.3.tar.gz
+SOURCE_SUM=d23d5d4b85f6f9486205249ac501df4cba640d31f76ef8620b49c70bcb8a906e
+SOURCE_SUM_PRG=sha256sum
+SOURCE_FORMAT=tar.gz
+SOURCE_IN_SUBDIR=true
+SOURCE_FILENAME=

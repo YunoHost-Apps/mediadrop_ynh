@@ -3,7 +3,5 @@
 socket = /tmp/uwsgi-mediadrop.sock
 master = true
 processes = 5
-chmod-socket=777
-uid=root
-gid=root
-home = /opt/mediadrop/venv
+home = /var/www/mediadrop/venv
+daemonize = /var/log/uwsgi.log

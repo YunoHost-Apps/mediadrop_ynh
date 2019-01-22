@@ -1,75 +1,177 @@
 #!/bin/bash
 
-# Exit on command errors and treat unset variables as an error
-set -eu
+#=================================================
+# GENERIC START
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
 
-source .fonctions	# Loads the generic functions usually used in the script
-source /usr/share/yunohost/helpers # Source app helpers
+source _common.sh
+source /usr/share/yunohost/helpers
 
-CLEAN_SETUP () {
-	# Clean installation residues that are not supported by the remove script.
-	# Clean hosts
-	sudo sed -i '/#MEDIADROP/d' /etc/hosts
+#=================================================
+# MANAGE SCRIPT FAILURE
+#=================================================
+
+ynh_clean_setup () {
+	### Remove this function if there's nothing to clean before calling the remove script.
+	true
 }
-TRAP_ON	# Active trap to stop the script if an error is detected.
+# Exit if an error occurs during the execution of the script
+ynh_abort_if_errors
+
+#=================================================
+# RETRIEVE ARGUMENTS FROM THE MANIFEST
+#=================================================
 
 domain=$YNH_APP_ARG_DOMAIN
-path=$YNH_APP_ARG_PATH
-admin_mediadrop=$YNH_APP_ARG_ADMIN
+path_url="/"
+admin=$YNH_APP_ARG_ADMIN
 is_public=$YNH_APP_ARG_IS_PUBLIC
 
+### If it's a multi-instance app, meaning it can be installed several times independently
+### The id of the app as stated in the manifest is available as $YNH_APP_ID
+### The instance number is available as $YNH_APP_INSTANCE_NUMBER (equals "1", "2", ...)
+### The app instance name is available as $YNH_APP_INSTANCE_NAME
+###    - the first time the app is installed, YNH_APP_INSTANCE_NAME = ynhexample
+###    - the second time the app is installed, YNH_APP_INSTANCE_NAME = ynhexample__2
+###    - ynhexample__{N} for the subsequent installations, with N=3,4, ...
+### The app instance name is probably what interests you most, since this is
+### guaranteed to be unique. This is a good unique identifier to define installation path,
+### db names, ...
 app=$YNH_APP_INSTANCE_NAME
 
-CHECK_VAR "$app" "app name not set"
+#=================================================
+# CHECK IF THE APP CAN BE INSTALLED WITH THESE ARGS
+#=================================================
 
-CHECK_USER "$admin_mediadrop"
+### If the app uses nginx as web server (written in HTML/PHP in most cases), the final path should be "/var/www/$app".
+### If the app provides an internal web server (or uses another application server such as uwsgi), the final path should be "/opt/yunohost/$app"
+final_path=/var/www/$app
+test ! -e "$final_path" || ynh_die "This path already contains a folder"
 
-CHECK_PATH
+# Normalize the url path syntax
+path_url=$(ynh_normalize_url_path $path_url)
 
-CHECK_DOMAINPATH
+# Register (book) web path
+ynh_webpath_register $app $domain $path_url
 
-CHECK_FINALPATH
-
-FIND_PORT 8081	# Check port availability
+#=================================================
+# STORE SETTINGS FROM MANIFEST
+#=================================================
 
 ynh_app_setting_set $app domain $domain
-ynh_app_setting_set $app path $path
-ynh_app_setting_set $app admin $admin_mediadrop
+ynh_app_setting_set $app path $path_url
+ynh_app_setting_set $app admin $admin
 ynh_app_setting_set $app is_public $is_public
+#=================================================
+# STANDARD MODIFICATIONS
+#=================================================
+# FIND AND OPEN A PORT
+#=================================================
 
-# Install python-virtualenv and all dependencies
-sudo apt-get update
-sudo apt-get -y install libjpeg-dev zlib1g-dev libfreetype6-dev libmysqlclient-dev
-sudo apt-get -y install python-setuptools python-virtualenv python-dev python-pip
+### Use these lines if you have to open a port for the application
+### `ynh_find_port` will find the first available port starting from the given port.
+### If you're not using these lines:
+###		- Remove the section "CLOSE A PORT" in the remove script
 
-GENERATE_DB $app	# Create a database and a dedicated user in the app name
+# Find a free port
+port=$(ynh_find_port 8081)
+# Open this port
+yunohost firewall allow --no-upnp TCP $port 2>&1
+ynh_app_setting_set $app port $port
 
-# Creates the destination directory and stores its location.
-sudo mkdir -p "$final_path/venv"
+#=================================================
+# INSTALL DEPENDENCIES
+#=================================================
+
+### `ynh_install_app_dependencies` allows you to add any "apt" dependencies to the package.
+### Those deb packages will be installed as dependencies of this package.
+### If you're not using this helper:
+###		- Remove the section "REMOVE DEPENDENCIES" in the remove script
+###		- As well as the section "REINSTALL DEPENDENCIES" in the restore script
+###		- And the section "UPGRADE DEPENDENCIES" in the upgrade script
+
+ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev python-dev default-libmysqlclient-dev
+ynh_install_app_dependencies python-setuptools python-virtualenv
+
+#=================================================
+# CREATE A MYSQL DATABASE
+#=================================================
+
+### Use these lines if you need a database for the application.
+### `ynh_mysql_setup_db` will create a database, an associated user and a ramdom password.
+### The password will be stored as 'mysqlpwd' into the app settings,
+### and will be available as $db_pwd
+### If you're not using these lines:
+###		- Remove the section "BACKUP THE MYSQL DATABASE" in the backup script
+###		- Remove also the section "REMOVE THE MYSQL DATABASE" in the remove script
+###		- As well as the section "RESTORE THE MYSQL DATABASE" in the restore script
+
+db_name=$(ynh_sanitize_dbid $app)
+ynh_app_setting_set $app db_name $db_name
+ynh_mysql_setup_db $db_name $db_name
+
+#=================================================
+# DOWNLOAD, CHECK AND UNPACK SOURCE
+#=================================================
+
+### `ynh_setup_source` is used to install an app from a zip or tar.gz file,
+### downloaded from an upstream source, like a git repository.
+### `ynh_setup_source` use the file conf/app.src
+
 ynh_app_setting_set $app final_path $final_path
-# Create user
-sudo useradd -N $app -d $final_path
+# Download, check integrity, uncompress and patch the source from app.src
+ynh_setup_source "$final_path"
 
-# Get source
-SETUP_SOURCE
+#=================================================
+# NGINX CONFIGURATION
+#=================================================
 
-# Copy nginx configuration
-sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/$app.conf
+### `ynh_add_nginx_config` will use the file conf/nginx.conf
 
-# Modif the variables in the nginx configuration file
-sudo sed -i "s@__PATHTOCHANGE__@$path@g" /etc/nginx/conf.d/$domain.d/$app.conf
-sudo sed -i "s@__FINALPATH__@$final_path@g" /etc/nginx/conf.d/$domain.d/$app.conf
+# Create a dedicated nginx config
+ynh_add_nginx_config 
 
-if [ "$is_public" = "Yes" ];
-then
-	sudo sed -i "s@#--PRIVATE--@@g" /etc/nginx/conf.d/$domain.d/$app.conf
-fi
+#=================================================
+# CREATE DEDICATED USER
+#=================================================
+
+# Create a system user
+ynh_system_user_create $app $final_path
+
+#=================================================
+# PHP-FPM CONFIGURATION
+#=================================================
+
+### `ynh_add_fpm_config` is used to set up a PHP config.
+### You can remove it if your app doesn't use PHP.
+### `ynh_add_fpm_config` will use the files conf/php-fpm.conf and conf/php-fpm.ini
+### If you're not using these lines:
+###		- You can remove these files in conf/.
+###		- Remove the section "BACKUP THE PHP-FPM CONFIGURATION" in the backup script
+###		- Remove also the section "REMOVE PHP-FPM CONFIGURATION" in the remove script
+###		- As well as the section "RESTORE THE PHP-FPM CONFIGURATION" in the restore script
+###		With the reload at the end of the script.
+###		- And the section "PHP-FPM CONFIGURATION" in the upgrade script
+
+# Create a dedicated php-fpm config
+#ynh_add_fpm_config
+
+#=================================================
+# SPECIFIC SETUP
+#=================================================
+# ...
+#=================================================
+
+# Creates the directory for Python Virtual Environment.
+sudo mkdir -p "$final_path/venv"
 
 # Set permissions mediadrop directory
 sudo chown -R $app: $final_path
 
 # Create a new virtual environment:
-sudo su $app -c "virtualenv --distribute --no-site-packages $final_path/venv"
+sudo -u $app virtualenv --distribute --no-site-packages $final_path/venv
 
 # Prepare mediacore to be installed
 sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
@@ -80,15 +182,15 @@ pushd ${final_path}
 # Now, activate that virtual environment
 sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
 
-# To create deployment.ini in your current dir
-sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config MediaDrop ${final_path}/deployment.ini"
+# To create Basic Configuration File deployment.ini in your current dir
+sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config mediacore ${final_path}/deployment.ini"
 
 # Adapt config Mediadrop
 sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
 sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
-sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin_mediadrop}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_user}':'${db_pwd}'@localhost/'${db_user}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
+sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin}'@'${domain}',' $final_path/deployment.ini
+sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin}'@'${domain}',' $final_path/deployment.ini
+sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_name}':'${db_pwd}'@localhost/'${db_name}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
 sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
 sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
 sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
@@ -99,53 +201,152 @@ sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/ima
 sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
 sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
 
+# Load Initial Data
+sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
+
+# Import fulltext search database triggers
+sudo mysql -u $db_name -p$db_pwd $app < "${final_path}/setup_triggers.sql"
+
 # Move to script folder
 popd
 
 # Add uwsgi into deployment.ini (end of file)
 sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
 
-# Add script systemd
-sudo cp ../conf/mediadrop.uwsgi.service /etc/systemd/system/mediadrop.uwsgi.service
-sudo chown root: /etc/systemd/system/mediadrop.uwsgi.service
-sudo sed -i "s@__FINALPATH__@$final_path/@g" /etc/systemd/system/mediadrop.uwsgi.service
-sudo cp ../conf/mediadrop.service /etc/systemd/system/mediadrop.service
-sudo chown root: /etc/systemd/system/mediadrop.service
-sudo sed -i "s@__FINALPATH__@$final_path/@g" /etc/systemd/system/mediadrop.service
-
-# Setup Mediadrop
-sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
-
-# Import fulltext search database triggers
-sudo mysql -u $db_user -p$db_pwd $app < "${final_path}/setup_triggers.sql"
-
-echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
-
-# Set ssowat config
-if [[ $is_public -eq 0 ]]; then
-	ynh_app_setting_delete $app unprotected_uris
-	sudo yunohost app ssowatconf
-fi
-
-sudo systemctl daemon-reload
-
-# Start mediadrop
-sudo systemctl start mediadrop.service
-sudo systemctl enable mediadrop.service
-
-# Start uwsgi
-sudo systemctl start mediadrop.uwsgi.service
-sudo systemctl enable mediadrop.uwsgi.service
-
-# Add uwsgi & mediadrop as a service
-sudo yunohost service add mediadrop.uwsgi
-sudo yunohost service add mediadrop
-
 sudo rm -fr /root/.python-eggs
+sudo rm -fr /root/.cache/Python-Eggs
+
+#=================================================
+# SETUP SYSTEMD
+#=================================================
+
+### `ynh_systemd_config` is used to configure a systemd script for an app.
+### It can be used for apps that use sysvinit (with adaptation) or systemd.
+### Have a look at the app to be sure this app needs a systemd script.
+### `ynh_systemd_config` will use the file conf/systemd.service
+### If you're not using these lines:
+###		- You can remove those files in conf/.
+###		- Remove the section "BACKUP SYSTEMD" in the backup script
+###		- Remove also the section "STOP AND REMOVE SERVICE" in the remove script
+###		- As well as the section "RESTORE SYSTEMD" in the restore script
+###		- And the section "SETUP SYSTEMD" in the upgrade script
+
+# Create a dedicated systemd config
+ynh_add_systemd_config "$app" "mediadrop.service"
+ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
+
+systemctl start "$app" "$app-uwsgi"
+
+#echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
+
+#sudo rm -fr /root/.python-eggs
+
+#=================================================
+# SETUP APPLICATION WITH CURL
+#=================================================
+
+### Use these lines only if the app installation needs to be finalized through
+### web forms. We generally don't want to ask the final user,
+### so we're going to use curl to automatically fill the fields and submit the
+### forms.
+
+# Set right permissions for curl install
+#chown -R $app: $final_path
+
+# Set the app as temporarily public for curl call
+#ynh_app_setting_set $app skipped_uris "/"
+# Reload SSOwat config
+#yunohost app ssowatconf
 
 # Reload Nginx
-sudo systemctl reload nginx
-sudo systemctl reload mysql
+#systemctl reload nginx
 
-# clean hosts
-sudo sed -i '/#MEDIADROP/d' /etc/hosts
+# Installation with curl
+#ynh_local_curl "/INSTALL_PATH" "key1=value1" "key2=value2" "key3=value3"
+
+# Remove the public access
+#if [ $is_public -eq 0 ]
+#then
+#	ynh_app_setting_delete $app skipped_uris
+#fi
+
+#=================================================
+# MODIFY A CONFIG FILE
+#=================================================
+
+### `ynh_replace_string` is used to replace a string in a file.
+### (It's compatible with sed regular expressions syntax)
+
+ynh_replace_string "match_string" "replace_string" "$final_path/deployment.ini"
+
+#=================================================
+# STORE THE CONFIG FILE CHECKSUM
+#=================================================
+
+### `ynh_store_file_checksum` is used to store the checksum of a file.
+### That way, during the upgrade script, by using `ynh_backup_if_checksum_is_different`,
+### you can make a backup of this file before modifying it again if the admin had modified it.
+
+# Calculate and store the config file checksum into the app settings
+#ynh_store_file_checksum "$final_path/deployment.ini"
+
+#=================================================
+# GENERIC FINALIZATION
+#=================================================
+# SECURE FILES AND DIRECTORIES
+#=================================================
+
+### For security reason, any app should set the permissions to root: before anything else.
+### Then, if write authorization is needed, any access should be given only to directories
+### that really need such authorization.
+
+# Set permissions to app files
+chown -R root: $final_path
+
+#=================================================
+# SETUP LOGROTATE
+#=================================================
+
+### `ynh_use_logrotate` is used to configure a logrotate configuration for the logs of this app.
+### Use this helper only if there is effectively a log file for this app.
+### If you're not using this helper:
+###		- Remove the section "BACKUP LOGROTATE" in the backup script
+###		- Remove also the section "REMOVE LOGROTATE CONFIGURATION" in the remove script
+###		- As well as the section "RESTORE THE LOGROTATE CONFIGURATION" in the restore script
+###		- And the section "SETUP LOGROTATE" in the upgrade script
+
+# Use logrotate to manage application logfile(s)
+ynh_use_logrotate
+
+#=================================================
+# ADVERTISE SERVICE IN ADMIN PANEL
+#=================================================
+
+### `yunohost service add` is a CLI yunohost command to add a service in the admin panel.
+### You'll find the service in the 'services' section of YunoHost admin panel.
+### This CLI command would be useless if the app does not have any services (systemd or sysvinit)
+### If you're not using these lines:
+###		- You can remove these files in conf/.
+###		- Remove the section "REMOVE SERVICE FROM ADMIN PANEL" in the remove script
+###		- As well as the section ADVERTISE SERVICE IN ADMIN PANEL" in the restore script
+
+#yunohost service add $app --log "/var/log/$app/APP.log"
+# if using yunohost version 3.2 or more in the 'manifest.json', a description can be added
+#yunohost service add $app --description "$app daemon for XXX" --log "/var/log/$app/APP.log"
+
+#=================================================
+# SETUP SSOWAT
+#=================================================
+
+# Make app public if necessary
+if [ $is_public -eq 1 ]
+then
+	# unprotected_uris allows SSO credentials to be passed anyway.
+	ynh_app_setting_set $app unprotected_uris "/"
+fi
+
+#=================================================
+# RELOAD NGINX
+#=================================================
+
+systemctl reload nginx
