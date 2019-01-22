@@ -188,11 +188,8 @@ ynh_use_logrotate --non-append
 ynh_add_systemd_config "$app" "mediadrop.service"
 ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
 
-
-yunohost service stop "$app"
-yunohost service stop "$app-uwsgi"
-yunohost service start "$app"
-yunohost service start "$app-uwsgie"
+systemctl stop "$app" "$app-uwsgi"
+systemctl start "$app" "$app-uwsgi"
 
 # Waiting start all services
 sleep 30

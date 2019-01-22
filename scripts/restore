@@ -107,6 +107,9 @@ ynh_restore_file "/etc/systemd/system/$app-uwsgi.service"
 systemctl enable $app.service
 systemctl enable $app-uwsgi.service
 
+
+systemctl start "$app" "$app-uwsgi"
+
 #=================================================
 # RESTORE THE CRON FILE
 #=================================================
@@ -127,6 +130,3 @@ ynh_restore_file "/etc/logrotate.d/$app"
 
 #systemctl reload php5-fpm
 systemctl reload nginx
-
-systemctl start $app.service
-systemctl start $app-uwsgi.service
