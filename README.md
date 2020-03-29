@@ -1,6 +1,6 @@
 # Mediadrop for YunoHost
 
-[![Integration level](https://dash.yunohost.org/integration/mediadrop.svg)](https://dash.yunohost.org/appci/app/mediadrop)  
+[![Integration level](https://dash.yunohost.org/integration/mediadrop.svg)](https://dash.yunohost.org/appci/app/mediadrop) ![](https://ci-apps.yunohost.org/ci/badges/mediadrop.status.svg) ![](https://ci-apps.yunohost.org/ci/badges/mediadrop.maintain.svg)  
 [![Install Mediadrop with YunoHost](https://install-app.yunohost.org/install-with-yunohost.png)](https://install-app.yunohost.org/?app=mediadrop)
 
 > *This package allow you to install Mediadrop quickly and simply on a YunoHost server.  
