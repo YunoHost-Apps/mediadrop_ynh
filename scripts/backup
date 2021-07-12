@@ -70,9 +70,3 @@ ynh_backup "/etc/logrotate.d/$app"
 
 ynh_backup "/etc/systemd/system/$app.service"
 ynh_backup "/etc/systemd/system/$app-uwsgi.service"
-
-#=================================================
-# BACKUP A CRON FILE
-#=================================================
-
-#ynh_backup "/etc/cron.d/$app"
