@@ -1,0 +1,1 @@
+MediaDrop provides unparalleled organization, statistics, accessibility, and scalability. Well-designed and well-engineered it is the ideal solution for any organization with large collections of video or audio.

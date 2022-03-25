@@ -14,8 +14,7 @@ source /usr/share/yunohost/helpers
 #=================================================
 
 ynh_clean_setup () {
-	### Remove this function if there's nothing to clean before calling the remove script.
-	true
+	ynh_clean_check_starting
 }
 # Exit if an error occurs during the execution of the script
 ynh_abort_if_errors
@@ -26,15 +25,16 @@ ynh_abort_if_errors
 
 domain=$YNH_APP_ARG_DOMAIN
 path_url="/"
-admin=$YNH_APP_ARG_ADMIN
 is_public=$YNH_APP_ARG_IS_PUBLIC
+admin=$YNH_APP_ARG_ADMIN
+secret=$(ynh_string_random --length=16)
 
 app=$YNH_APP_INSTANCE_NAME
 
 #=================================================
 # CHECK IF THE APP CAN BE INSTALLED WITH THESE ARGS
 #=================================================
-ynh_script_progression --message="Validating installation parameters..." --weight=1
+ynh_script_progression --message="Validating installation parameters..."
 
 final_path=/var/www/$app
 test ! -e "$final_path" || ynh_die --message="This path already contains a folder"
@@ -45,38 +45,35 @@ ynh_webpath_register --app=$app --domain=$domain --path_url=$path_url
 #=================================================
 # STORE SETTINGS FROM MANIFEST
 #=================================================
-ynh_script_progression --message="Storing installation settings..." --time --weight=1
+ynh_script_progression --message="Storing installation settings..."
 
 ynh_app_setting_set --app=$app --key=domain --value=$domain
 ynh_app_setting_set --app=$app --key=path --value=$path_url
 ynh_app_setting_set --app=$app --key=admin --value=$admin
+ynh_app_setting_set --app=$app --key=secret --value=$secret
 
 #=================================================
 # STANDARD MODIFICATIONS
 #=================================================
 # FIND AND OPEN A PORT
 #=================================================
-ynh_script_progression --message="Finding an available port..." --weight=1
+ynh_script_progression --message="Finding an available port..."
 
 # Find an available port
-port=$(ynh_find_port --port=8081)
+port=$(ynh_find_port --port=8095)
 ynh_app_setting_set --app=$app --key=port --value=$port
-
-# Open the port
-ynh_script_progression --message="Configuring firewall..." --weight=1
-ynh_exec_warn_less yunohost firewall allow --no-upnp TCP $port
 
 #=================================================
 # INSTALL DEPENDENCIES
 #=================================================
-ynh_script_progression --message="Installing dependencies..." --weight=1
+ynh_script_progression --message="Installing dependencies..."
 
 ynh_install_app_dependencies $pkg_dependencies
 
 #=================================================
 # CREATE DEDICATED USER
 #=================================================
-ynh_script_progression --message="Configuring system user..." --weight=1
+ynh_script_progression --message="Configuring system user..."
 
 # Create a system user
 ynh_system_user_create --username=$app --home_dir="$final_path"
@@ -84,17 +81,18 @@ ynh_system_user_create --username=$app --home_dir="$final_path"
 #=================================================
 # CREATE A MYSQL DATABASE
 #=================================================
-ynh_script_progression --message="Creating a MySQL database..." --weight=1
+ynh_script_progression --message="Creating a MySQL database..."
 
 db_name=$(ynh_sanitize_dbid --db_name=$app)
 db_user=$db_name
 ynh_app_setting_set --app=$app --key=db_name --value=$db_name
 ynh_mysql_setup_db --db_user=$db_user --db_name=$db_name
+db_pwd=$(ynh_app_setting_get $app mysqlpwd)
 
 #=================================================
 # DOWNLOAD, CHECK AND UNPACK SOURCE
 #=================================================
-ynh_script_progression --message="Setting up source files..." --weight=1
+ynh_script_progression --message="Setting up source files..."
 
 ynh_app_setting_set --app=$app --key=final_path --value=$final_path
 # Download, check integrity, uncompress and patch the source from app.src
@@ -107,178 +105,106 @@ chown -R $app:www-data "$final_path"
 #=================================================
 # NGINX CONFIGURATION
 #=================================================
-ynh_script_progression --message="Configuring NGINX web server..." --weight=1
+ynh_script_progression --message="Configuring NGINX web server..."
 
-# Create a dedicated nginx config
-ynh_add_nginx_config 
-
-#=================================================
-# PHP-FPM CONFIGURATION
-#=================================================
-
-# Create a dedicated php-fpm config
-#ynh_add_fpm_config
+# Create a dedicated NGINX config
+ynh_add_nginx_config
 
 #=================================================
 # SPECIFIC SETUP
 #=================================================
-# ...
+# CREATE DATA DIRECTORY
 #=================================================
+ynh_script_progression --message="Creating a data directory..."
 
-# Creates the directory for Python Virtual Environment.
-sudo mkdir -p "$final_path/venv"
+datadir=/home/yunohost.app/$app
+ynh_app_setting_set --app=$app --key=datadir --value=$datadir
 
-# Set permissions mediadrop directory
-sudo chown -R $app: $final_path
+mkdir -p $datadir
 
-# Create a new virtual environment:
-sudo -u $app virtualenv --distribute --no-site-packages $final_path/venv
+chmod 750 "$datadir"
+chmod -R o-rwx "$datadir"
+chown -R $app:www-data "$datadir"
 
-# Prepare mediacore to be installed
-sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
+#=================================================
+# ADD A CONFIGURATION
+#=================================================
+ynh_script_progression --message="Adding a configuration file..."
 
-# Move to final_path
-pushd ${final_path}
+ynh_add_config --template="../conf/deployment.ini" --destination="$final_path/deployment.ini"
 
-# Now, activate that virtual environment
-sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
+chmod 400 "$final_path/deployment.ini"
+chown $app:$app "$final_path/deployment.ini"
 
-# To create Basic Configuration File deployment.ini in your current dir
-sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config mediacore ${final_path}/deployment.ini"
+#=================================================
+# BUILD APP
+#=================================================
+ynh_script_progression --message="Buiding app..."
 
-# Adapt config Mediadrop
-sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
-sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
-sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_name}':'${db_pwd}'@localhost/'${db_name}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
-sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
-sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
-sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
-sudo sed -i 's,enable_gzip = true,enable_gzip = false,' $final_path/deployment.ini
-sudo sed -i 's,static_files = false,static_files = true,' $final_path/deployment.ini
-sudo sed -i "s,cache_dir = %(here)s/data,cache_dir = $final_path/data/," $final_path/deployment.ini
-sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/images/," $final_path/deployment.ini
-sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
-sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
-
-# Load Initial Data
-sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
-
-# Import fulltext search database triggers
-sudo mysql -u $db_name -p$db_pwd $app < "${final_path}/setup_triggers.sql"
-
-# Move to script folder
+pushd "$final_path"
+	ynh_exec_as $app virtualenv --distribute --no-site-packages venv
+	ynh_replace_string --match_string="allow_hosts = static.mediadrop.video" --replace_string="#allow_hosts = static.mediadrop.video" --target_file="${final_path}/setup.cfg"
+	ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
+	ynh_exec_as $app $final_path/venv/bin/python setup.py develop
+	ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
+	ynh_mysql_execute_file_as_root --file="${final_path}/setup_triggers.sql" --database=$db_name
 popd
-
-# Add uwsgi into deployment.ini (end of file)
-sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
-
-sudo rm -fr /root/.python-eggs
-sudo rm -fr /root/.cache/Python-Eggs
 
 #=================================================
 # SETUP SYSTEMD
 #=================================================
-
+ynh_script_progression --message="Configuring a systemd service..."
 
 # Create a dedicated systemd config
-ynh_add_systemd_config "$app" "mediadrop.service"
-ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
-
-systemctl start "$app" "$app-uwsgi"
-
-#echo -e "127.0.0.1 $domain #MEDIADROP" | sudo tee -a /etc/hosts
-
-#sudo rm -fr /root/.python-eggs
+ynh_add_systemd_config
+ynh_add_systemd_config --service="$app-uwsgi" --template="systemd-uwsgi.service"
 
 #=================================================
-# SETUP APPLICATION WITH CURL
-#=================================================
-
-### Use these lines only if the app installation needs to be finalized through
-### web forms. We generally don't want to ask the final user,
-### so we're going to use curl to automatically fill the fields and submit the
-### forms.
-
-# Set right permissions for curl install
-#chown -R $app: $final_path
-
-# Set the app as temporarily public for curl call
-#ynh_app_setting_set $app skipped_uris "/"
-# Reload SSOwat config
-#yunohost app ssowatconf
-
-# Reload Nginx
-#systemctl reload nginx
-
-# Installation with curl
-#ynh_local_curl "/INSTALL_PATH" "key1=value1" "key2=value2" "key3=value3"
-
-# Remove the public access
-#if [ $is_public -eq 0 ]
-#then
-#	ynh_app_setting_delete $app skipped_uris
-#fi
-
-#=================================================
-# MODIFY A CONFIG FILE
-#=================================================
-
-### `ynh_replace_string` is used to replace a string in a file.
-### (It's compatible with sed regular expressions syntax)
-
-ynh_replace_string "match_string" "replace_string" "$final_path/deployment.ini"
-
-#=================================================
-# STORE THE CONFIG FILE CHECKSUM
-#=================================================
-
-### `ynh_store_file_checksum` is used to store the checksum of a file.
-### That way, during the upgrade script, by using `ynh_backup_if_checksum_is_different`,
-### you can make a backup of this file before modifying it again if the admin had modified it.
-
-# Calculate and store the config file checksum into the app settings
-#ynh_store_file_checksum "$final_path/deployment.ini"
-
+# GENERIC FINALIZATION
 #=================================================
 # SETUP LOGROTATE
 #=================================================
+ynh_script_progression --message="Configuring log rotation..."
 
+mkdir -p "/var/log/$app"
+chown $app:$app "/var/log/$app"
 # Use logrotate to manage application logfile(s)
 ynh_use_logrotate
 
 #=================================================
-# ADVERTISE SERVICE IN ADMIN PANEL
+# INTEGRATE SERVICE IN YUNOHOST
 #=================================================
+ynh_script_progression --message="Integrating service in YunoHost..."
 
-### `yunohost service add` is a CLI yunohost command to add a service in the admin panel.
-### You'll find the service in the 'services' section of YunoHost admin panel.
-### This CLI command would be useless if the app does not have any services (systemd or sysvinit)
-### If you're not using these lines:
-###		- You can remove these files in conf/.
-###		- Remove the section "REMOVE SERVICE FROM ADMIN PANEL" in the remove script
-###		- As well as the section ADVERTISE SERVICE IN ADMIN PANEL" in the restore script
+yunohost service add $app
+yunohost service add "$app-uwsgi" --log="/var/log/$app/uwsgi.log"
 
-#yunohost service add $app --log "/var/log/$app/APP.log"
-# if using yunohost version 3.2 or more in the 'manifest.json', a description can be added
-#yunohost service add $app --description "$app daemon for XXX" --log "/var/log/$app/APP.log"
+#=================================================
+# START SYSTEMD SERVICE
+#=================================================
+ynh_script_progression --message="Starting a systemd service..."
+
+# Start a systemd service
+ynh_systemd_action --service_name=$app --action="start" --log_path="systemd" --line_match="Started"
+ynh_systemd_action --service_name="$app-uwsgi" --action="start" --log_path="systemd" --line_match="Started"
 
 #=================================================
 # SETUP SSOWAT
 #=================================================
-ynh_script_progression --message="Configuring permissions..." --weight=1
+ynh_script_progression --message="Configuring permissions..."
 
 # Make app public if necessary
 if [ $is_public -eq 1 ]
 then
+	# Everyone can access the app.
+	# The "main" permission is automatically created before the install script.
 	ynh_permission_update --permission="main" --add="visitors"
 fi
 
 #=================================================
 # RELOAD NGINX
 #=================================================
-ynh_script_progression --message="Reloading NGINX web server..." --weight=1
+ynh_script_progression --message="Reloading NGINX web server..."
 
 ynh_systemd_action --service_name=nginx --action=reload
 
@@ -286,4 +212,4 @@ ynh_systemd_action --service_name=nginx --action=reload
 # END OF SCRIPT
 #=================================================
 
-ynh_script_progression --message="Installation of $app completed" --last
+ynh_script_progression --message="Installation of $app completed"
