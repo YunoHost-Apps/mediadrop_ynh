@@ -3,8 +3,8 @@
     "id": "mediadrop",
     "packaging_format": 1,
     "description": {
-        "en": "Mediadrop - The Web’s Open Source Video Platform",
-        "fr": "Mediadrop - Plateforme web vidéo Open Source"
+        "en": "The Web’s Open Source Video Platform",
+        "fr": "Plateforme web vidéo Open Source"
     },
     "version": "0.10.3~ynh2",
     "url": "http://mediadrop.video/",
