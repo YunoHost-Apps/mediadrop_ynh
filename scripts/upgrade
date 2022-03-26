@@ -130,9 +130,9 @@ pushd "$final_path"
 	ynh_secure_remove --file="$final_path/venv"
 	ynh_exec_as $app virtualenv --distribute --no-site-packages venv
 	ynh_replace_string --match_string="allow_hosts = static.mediadrop.video" --replace_string="#allow_hosts = static.mediadrop.video" --target_file="${final_path}/setup.cfg"
-	ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
-	ynh_exec_as $app $final_path/venv/bin/python setup.py develop
-	ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/python setup.py develop
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
 	ynh_mysql_execute_file_as_root --file="${final_path}/setup_triggers.sql" --database=$db_name
 popd
 
