@@ -100,7 +100,7 @@ ynh_script_progression --message="Restoring the MySQL database..."
 
 db_pwd=$(ynh_app_setting_get --app=$app --key=mysqlpwd)
 ynh_mysql_setup_db --db_user=$db_user --db_name=$db_name --db_pwd=$db_pwd
-ynh_mysql_execute_file_as_root --file=" ./db.sql" --database=$db_name
+ynh_mysql_execute_file_as_root --file="./db.sql" --database=$db_name
 
 #=================================================
 # RESTORE SYSTEMD
