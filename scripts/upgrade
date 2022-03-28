@@ -134,7 +134,6 @@ pushd "$final_path"
 	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
 	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/python setup.py develop
 	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
-	ynh_mysql_execute_file_as_root --file="${final_path}/setup_triggers.sql" --database=$db_name
 popd
 
 #=================================================
