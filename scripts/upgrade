@@ -12,210 +12,177 @@ source /usr/share/yunohost/helpers
 #=================================================
 # LOAD SETTINGS
 #=================================================
+ynh_script_progression --message="Loading installation settings..."
 
 app=$YNH_APP_INSTANCE_NAME
 
-domain=$(ynh_app_setting_get $app domain)
-path_url=$(ynh_app_setting_get $app path)
-admin=$(ynh_app_setting_get $app admin)
-is_public=$(ynh_app_setting_get $app is_public)
-final_path=$(ynh_app_setting_get $app final_path)
-db_name=$(ynh_app_setting_get $app db_name)
-db_pwd=$(ynh_app_setting_get $app db_pwd)
-port=$(ynh_app_setting_get $app port)
+domain=$(ynh_app_setting_get --app=$app --key=domain)
+path_url=$(ynh_app_setting_get --app=$app --key=path)
+admin=$(ynh_app_setting_get --app=$app --key=admin)
+final_path=$(ynh_app_setting_get --app=$app --key=final_path)
+db_name=$(ynh_app_setting_get --app=$app --key=db_name)
+db_user=$db_name
+db_pwd=$(ynh_app_setting_get --app=$app --key=mysqlpwd)
+port=$(ynh_app_setting_get --app=$app --key=port)
+secret=$(ynh_app_setting_get --app=$app --key=secret)
+datadir=$(ynh_app_setting_get --app=$app --key=datadir)
 
 #=================================================
-# ENSURE DOWNWARD COMPATIBILITY
+# CHECK VERSION
 #=================================================
+ynh_script_progression --message="Checking version..."
 
-# Fix is_public as a boolean value
-if [ "$is_public" = "Yes" ]; then
-	ynh_app_setting_set $app is_public 1
-	is_public=1
-elif [ "$is_public" = "No" ]; then
-	ynh_app_setting_set $app is_public 0
-	is_public=0
-fi
-
-# If db_name doesn't exist, create it
-if [ -z $db_name ]; then
-	db_name=$(ynh_sanitize_dbid $app)
-	ynh_app_setting_set $app db_name $db_name
-fi
-
-# If final_path doesn't exist, create it
-if [ -z $final_path ]; then
-	final_path=/var/www/$app
-	ynh_app_setting_set $app final_path $final_path
-fi
+upgrade_type=$(ynh_check_app_version_changed)
 
 #=================================================
 # BACKUP BEFORE UPGRADE THEN ACTIVE TRAP
 #=================================================
+ynh_script_progression --message="Backing up the app before upgrading (may take a while)..."
 
 # Backup the current version of the app
 ynh_backup_before_upgrade
 ynh_clean_setup () {
-	# restore it if the upgrade fails
+	ynh_clean_check_starting
+	# Restore it if the upgrade fails
 	ynh_restore_upgradebackup
 }
 # Exit if an error occurs during the execution of the script
 ynh_abort_if_errors
 
 #=================================================
-# CHECK THE PATH
-#=================================================
-
-# Normalize the URL path syntax
-path_url=$(ynh_normalize_url_path $path_url)
-
-#=================================================
 # STANDARD UPGRADE STEPS
+#=================================================
+# STOP SYSTEMD SERVICE
+#=================================================
+ynh_script_progression --message="Stopping a systemd service..."
+
+ynh_systemd_action --service_name=$app --action="stop" --log_path="systemd" --line_match="Stopped"
+ynh_systemd_action --service_name=$app-uwsgi --action="stop" --log_path="systemd" --line_match="Stopped"
+
+#=================================================
+# ENSURE DOWNWARD COMPATIBILITY
+#=================================================
+ynh_script_progression --message="Ensuring downward compatibility..."
+
+# Cleaning legacy permissions
+if ynh_legacy_permissions_exists; then
+	ynh_legacy_permissions_delete_all
+
+	ynh_app_setting_delete --app=$app --key=is_public
+fi
+
+#=================================================
+# CREATE DEDICATED USER
+#=================================================
+ynh_script_progression --message="Making sure dedicated system user exists..."
+
+# Create a dedicated user (if not existing)
+ynh_system_user_create --username=$app --home_dir="$final_path"
+
 #=================================================
 # DOWNLOAD, CHECK AND UNPACK SOURCE
 #=================================================
 
-# Download, check integrity, uncompress and patch the source from app.src
-ynh_setup_source "$final_path"
+if [ "$upgrade_type" == "UPGRADE_APP" ]
+then
+	ynh_script_progression --message="Upgrading source files..."
+
+	# Download, check integrity, uncompress and patch the source from app.src
+	ynh_setup_source --dest_dir="$final_path" --keep="deployment.ini"
+fi
+
+chmod 750 "$final_path"
+chmod -R o-rwx "$final_path"
+chown -R $app:www-data "$final_path"
 
 #=================================================
 # NGINX CONFIGURATION
 #=================================================
+ynh_script_progression --message="Upgrading NGINX web server configuration..."
 
-# Create a dedicated nginx config
+# Create a dedicated NGINX config
 ynh_add_nginx_config
 
 #=================================================
 # UPGRADE DEPENDENCIES
 #=================================================
+ynh_script_progression --message="Upgrading dependencies..."
 
-ynh_install_app_dependencies libjpeg-dev zlib1g-dev libfreetype6-dev default-libmysqlclient-dev python-dev
-ynh_install_app_dependencies python-setuptools python-virtualenv
-
-#=================================================
-# CREATE DEDICATED USER
-#=================================================
-
-# Create a dedicated user (if not existing)
-ynh_system_user_create $app  $final_path
-
-#=================================================
-# PHP-FPM CONFIGURATION
-#=================================================
-
-# Create a dedicated php-fpm config
-#ynh_add_fpm_config
+ynh_install_app_dependencies $pkg_dependencies
 
 #=================================================
 # SPECIFIC UPGRADE
 #=================================================
-# ...
+# UPDATE A CONFIG FILE
 #=================================================
+ynh_script_progression --message="Updating a configuration file..."
 
-# Delete the old environnement
-sudo rm -rf "$final_path/venv"
+ynh_add_config --template="../conf/deployment.ini" --destination="$final_path/deployment.ini"
 
-# Creates the directory for Python Virtual Environment.
-sudo mkdir -p "$final_path/venv"
+chmod 400 "$final_path/deployment.ini"
+chown $app:$app "$final_path/deployment.ini"
 
-# Set permissions mediadrop directory
-sudo chown -R $app: $final_path
+#=================================================
+# BUILD APP
+#=================================================
+ynh_script_progression --message="Buiding app..."
 
-# Create a new virtual environment:
-sudo -u $app virtualenv --distribute --no-site-packages $final_path/venv
-
-
-# Prepare mediacore to be upgarded
-sudo sed -i "s@allow_hosts = static.mediadrop.net@#allow_hosts = static.mediadrop.net@g" "${final_path}/setup.cfg"
-
-# Move to final_path
-pushd ${final_path}
-
-# Now, activate that virtual environment
-sudo bash -c "source ${final_path}/venv/bin/activate && pip install uwsgi && python setup.py develop"
-
-# To create Basic Configuration File deployment.ini in your current dir
-sudo bash -c "source ${final_path}/venv/bin/activate && paster make-config mediacore ${final_path}/deployment.ini"
-
-# Adapt config Mediadrop
-sudo sed -i 's,host = 0.0.0.0,host = 127.0.0.1,'  $final_path/deployment.ini
-sudo sed -i 's,port = 8080,port = '${port}','  $final_path/deployment.ini
-sudo sed -i 's,email_to = you@yourdomain.com,email_to = '${admin}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,error_email_from = paste@localhost,error_email_from = '${admin}'@'${domain}',' $final_path/deployment.ini
-sudo sed -i 's,mysql://username:pass@localhost/dbname?charset=utf8\&use_unicode=0,mysql://'${db_name}':'${db_pwd}'@localhost/'${db_name}'?charset=utf8\&use_unicode=0,' $final_path/deployment.ini
-sudo sed -i 's,file_serve_method = default,file_serve_method = nginx_redirect,' $final_path/deployment.ini
-sudo sed -i 's,# nginx_serve_path = __mediadrop_serve__,nginx_serve_path = __mediadrop_serve__,' $final_path/deployment.ini
-sudo sed -i 's,static_files = true,static_files = false,' $final_path/deployment.ini
-sudo sed -i 's,enable_gzip = true,enable_gzip = false,' $final_path/deployment.ini
-sudo sed -i 's,static_files = false,static_files = true,' $final_path/deployment.ini
-sudo sed -i "s,cache_dir = %(here)s/data,cache_dir = $final_path/data/," $final_path/deployment.ini
-sudo sed -i "s,image_dir = %(here)s/data/images,image_dir = $final_path/data/images/," $final_path/deployment.ini
-sudo sed -i "s,media_dir = %(here)s/data/media,media_dir = $final_path/data/media/," $final_path/deployment.ini
-sudo sed -i 's,sqlalchemy.pool_recycle = 3600,sqlalchemy.pool_recycle = 200,' $final_path/deployment.ini
-
-# Load Initial Data
-sudo bash -c "source ${final_path}/venv/bin/activate && paster setup-app ${final_path}/deployment.ini"
-
-# Move to script folder
+pushd "$final_path"
+	ynh_secure_remove --file="$final_path/venv"
+	ynh_exec_as $app virtualenv --distribute --no-site-packages venv
+	ynh_replace_string --match_string="allow_hosts = static.mediadrop.video" --replace_string="#allow_hosts = static.mediadrop.video" --target_file="${final_path}/setup.cfg"
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/python setup.py develop
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
 popd
-
-
-# Add uwsgi into deployment.ini (end of file)
-sudo su -c "cat ../conf/uwsgi >> ${final_path}/deployment.ini"
-
-sudo rm -fr /root/.python-eggs
-sudo rm -fr /root/.cache/Python-Eggs
-
-
-### Verify the checksum of a file, stored by `ynh_store_file_checksum` in the install script.
-### And create a backup of this file if the checksum is different. So the file will be backed up if the admin had modified it.
-ynh_backup_if_checksum_is_different "$final_path/deployment.ini"
-# Recalculate and store the checksum of the file for the next upgrade.
-ynh_store_file_checksum "$final_path/deployment.ini"
-
-#=================================================
-# SETUP LOGROTATE
-#=================================================
-
-# Use logrotate to manage app-specific logfile(s)
-ynh_use_logrotate --non-append
 
 #=================================================
 # SETUP SYSTEMD
 #=================================================
+ynh_script_progression --message="Upgrading systemd configuration..."
 
 # Create a dedicated systemd config
-ynh_add_systemd_config "$app" "mediadrop.service"
-ynh_add_systemd_config "$app-uwsgi" "mediadrop-uwsgi.service"
-
-systemctl stop "$app" "$app-uwsgi"
-systemctl start "$app" "$app-uwsgi"
-
-# Waiting start all services
-sleep 30
+ynh_add_systemd_config
+ynh_add_systemd_config --service="$app-uwsgi" --template="systemd-uwsgi.service"
 
 #=================================================
 # GENERIC FINALIZATION
 #=================================================
-# SECURE FILES AND DIRECTORIES
+# SETUP LOGROTATE
 #=================================================
+ynh_script_progression --message="Upgrading logrotate configuration..."
 
-# Set permissions on app files
-chown -R root: $final_path
+mkdir -p "/var/log/$app"
+chown $app:$app "/var/log/$app"
+# Use logrotate to manage app-specific logfile(s)
+ynh_use_logrotate --non-append
 
 #=================================================
-# SETUP SSOWAT
+# INTEGRATE SERVICE IN YUNOHOST
 #=================================================
+ynh_script_progression --message="Integrating service in YunoHost..."
 
-# Make app public if necessary
-if [ $is_public -eq 1 ]
-then
-	# unprotected_uris allows SSO credentials to be passed anyway
-	ynh_app_setting_set $app unprotected_uris "/"
-fi
+yunohost service add $app
+yunohost service add "$app-uwsgi" --log="/var/log/$app/uwsgi.log"
+
+#=================================================
+# START SYSTEMD SERVICE
+#=================================================
+ynh_script_progression --message="Starting a systemd service..."
+
+# Start a systemd service
+ynh_systemd_action --service_name=$app --action="start" --log_path="systemd" --line_match="Started"
+ynh_systemd_action --service_name="$app-uwsgi" --action="start" --log_path="systemd" --line_match="Started"
 
 #=================================================
 # RELOAD NGINX
 #=================================================
+ynh_script_progression --message="Reloading NGINX web server..."
 
-systemctl reload nginx
+ynh_systemd_action --service_name=nginx --action=reload
+
+#=================================================
+# END OF SCRIPT
+#=================================================
+
+ynh_script_progression --message="Upgrade of $app completed"
