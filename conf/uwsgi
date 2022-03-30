@@ -1,7 +1,0 @@
-
-[uwsgi]
-socket = /tmp/uwsgi-mediadrop.sock
-master = true
-processes = 5
-home = /var/www/mediadrop/venv
-daemonize = /var/log/uwsgi.log
