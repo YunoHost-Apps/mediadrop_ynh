@@ -4,8 +4,10 @@
 # COMMON VARIABLES
 #=================================================
 
+python_version=2.7.18
+
 # dependencies used by the app
-pkg_dependencies="libjpeg-dev zlib1g-dev libfreetype6-dev python-dev default-libmysqlclient-dev python-setuptools python-virtualenv"
+pkg_dependencies="libjpeg-dev zlib1g-dev libfreetype6-dev"
 
 #=================================================
 # PERSONAL HELPERS
