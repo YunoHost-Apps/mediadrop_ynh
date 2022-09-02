@@ -115,7 +115,7 @@ pushd "$final_path"
 	ynh_exec_warn_less $ynh_pip install uwsgi mysqlclient
 	ynh_exec_warn_less $ynh_python setup.py develop
 	ynh_exec_warn_less $ynh_python_path/paster setup-app ${final_path}/deployment.ini
-	chown -R $app:$app $ynh_python_path/envs/$app
+	chown -R $app:$app $pyenv_install_dir/versions/$python_version/envs/mediadrop
 popd
 
 #=================================================
