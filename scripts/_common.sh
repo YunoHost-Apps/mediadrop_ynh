@@ -7,7 +7,7 @@
 python_version=2.7.18
 
 # dependencies used by the app
-pkg_dependencies="libjpeg-dev zlib1g-dev libfreetype6-dev"
+pkg_dependencies="libjpeg-dev zlib1g-dev libfreetype6-dev libmariadb-dev"
 
 #=================================================
 # PERSONAL HELPERS
