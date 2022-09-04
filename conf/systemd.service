@@ -4,12 +4,13 @@ Requires=network.target
 After=network.target
 
 [Service]
+Type=simple
 User=__APP__
 Group=__APP__
 RemainAfterExit=yes
 WorkingDirectory=__FINALPATH__/
-Environment="PATH=__FINALPATH__/venv/bin"
-ExecStart=__FINALPATH__/venv/bin/paster serve --reload __FINALPATH__/deployment.ini
+Environment="__YNH_PYTHON_LOAD_PATH__"
+ExecStart=__YNH_PYTHON_PATH__/paster serve --reload __FINALPATH__/deployment.ini
 Restart=always
 StandardError=syslog
 
