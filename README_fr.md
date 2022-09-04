@@ -20,8 +20,6 @@ MediaDrop est la solution idéale pour les personnes ou organisations souhaitant
 
 **Version incluse :** 0.10.3~ynh2
 
-
-**Démo :** https://demo.example.com
 ## Avertissements / informations importantes
 
 ## Utilisation

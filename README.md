@@ -20,8 +20,6 @@ MediaDrop provides unparalleled organization, statistics, accessibility, and sca
 
 **Shipped version:** 0.10.3~ynh2
 
-
-**Demo:** https://demo.example.com
 ## Disclaimers / important information
 
 ## Use
