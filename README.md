@@ -5,7 +5,7 @@ It shall NOT be edited by hand.
 
 # Mediadrop for YunoHost
 
-[![Integration level](https://dash.yunohost.org/integration/mediadrop.svg)](https://dash.yunohost.org/appci/app/mediadrop) ![Working status](https://ci-apps.yunohost.org/ci/badges/mediadrop.status.svg) ![Maintenance status](https://ci-apps.yunohost.org/ci/badges/mediadrop.maintain.svg)  
+[![Integration level](https://dash.yunohost.org/integration/mediadrop.svg)](https://dash.yunohost.org/appci/app/mediadrop) ![](https://ci-apps.yunohost.org/ci/badges/mediadrop.status.svg) ![](https://ci-apps.yunohost.org/ci/badges/mediadrop.maintain.svg)  
 [![Install Mediadrop with YunoHost](https://install-app.yunohost.org/install-with-yunohost.svg)](https://install-app.yunohost.org/?app=mediadrop)
 
 *[Lire ce readme en français.](./README_fr.md)*
@@ -19,6 +19,8 @@ MediaDrop provides unparalleled organization, statistics, accessibility, and sca
 
 
 **Shipped version:** 0.10.3~ynh2
+
+**Demo:** https://demo.example.com
 
 ## Disclaimers / important information
 
@@ -54,22 +56,21 @@ Source: [Documentation MySQL](https://dev.mysql.com/doc/refman/5.7/en/server-sys
 
 ## Documentation and resources
 
-* Official app website: <http://mediadrop.video/>
-* Official admin documentation: <https://mediadrop.video/docs/>
-* Upstream app code repository: <https://github.com/mediadrop/mediadrop>
-* YunoHost documentation for this app: <https://yunohost.org/app_mediadrop>
-* Report a bug: <https://github.com/YunoHost-Apps/mediadrop_ynh/issues>
+* Official app website: http://mediadrop.video/
+* Official admin documentation: https://mediadrop.video/docs/
+* Upstream app code repository: https://github.com/mediadrop/mediadrop
+* YunoHost documentation for this app: https://yunohost.org/app_mediadrop
+* Report a bug: https://github.com/YunoHost-Apps/mediadrop_ynh/issues
 
 ## Developer info
 
 Please send your pull request to the [testing branch](https://github.com/YunoHost-Apps/mediadrop_ynh/tree/testing).
 
 To try the testing branch, please proceed like that.
-
-``` bash
+```
 sudo yunohost app install https://github.com/YunoHost-Apps/mediadrop_ynh/tree/testing --debug
 or
 sudo yunohost app upgrade mediadrop -u https://github.com/YunoHost-Apps/mediadrop_ynh/tree/testing --debug
 ```
 
-**More info regarding app packaging:** <https://yunohost.org/packaging_apps>
+**More info regarding app packaging:** https://yunohost.org/packaging_apps

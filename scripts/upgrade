@@ -7,13 +7,12 @@
 #=================================================
 
 source _common.sh
-source ynh_install_python
 source /usr/share/yunohost/helpers
 
 #=================================================
 # LOAD SETTINGS
 #=================================================
-ynh_script_progression --message="Loading installation settings..." --weight=1
+ynh_script_progression --message="Loading installation settings..."
 
 app=$YNH_APP_INSTANCE_NAME
 
@@ -31,18 +30,19 @@ datadir=$(ynh_app_setting_get --app=$app --key=datadir)
 #=================================================
 # CHECK VERSION
 #=================================================
-ynh_script_progression --message="Checking version..." --weight=1
+ynh_script_progression --message="Checking version..."
 
 upgrade_type=$(ynh_check_app_version_changed)
 
 #=================================================
 # BACKUP BEFORE UPGRADE THEN ACTIVE TRAP
 #=================================================
-ynh_script_progression --message="Backing up the app before upgrading (may take a while)..." --weight=1
+ynh_script_progression --message="Backing up the app before upgrading (may take a while)..."
 
 # Backup the current version of the app
 ynh_backup_before_upgrade
 ynh_clean_setup () {
+	ynh_clean_check_starting
 	# Restore it if the upgrade fails
 	ynh_restore_upgradebackup
 }
@@ -54,7 +54,7 @@ ynh_abort_if_errors
 #=================================================
 # STOP SYSTEMD SERVICE
 #=================================================
-ynh_script_progression --message="Stopping a systemd service..." --weight=1
+ynh_script_progression --message="Stopping a systemd service..."
 
 ynh_systemd_action --service_name=$app --action="stop" --log_path="systemd" --line_match="Stopped"
 ynh_systemd_action --service_name=$app-uwsgi --action="stop" --log_path="systemd" --line_match="Stopped"
@@ -62,7 +62,7 @@ ynh_systemd_action --service_name=$app-uwsgi --action="stop" --log_path="systemd
 #=================================================
 # ENSURE DOWNWARD COMPATIBILITY
 #=================================================
-ynh_script_progression --message="Ensuring downward compatibility..." --weight=1
+ynh_script_progression --message="Ensuring downward compatibility..."
 
 # Cleaning legacy permissions
 if ynh_legacy_permissions_exists; then
@@ -71,12 +71,10 @@ if ynh_legacy_permissions_exists; then
 	ynh_app_setting_delete --app=$app --key=is_public
 fi
 
-ynh_secure_remove --file="$final_path/venv"
-
 #=================================================
 # CREATE DEDICATED USER
 #=================================================
-ynh_script_progression --message="Making sure dedicated system user exists..." --weight=1
+ynh_script_progression --message="Making sure dedicated system user exists..."
 
 # Create a dedicated user (if not existing)
 ynh_system_user_create --username=$app --home_dir="$final_path"
@@ -87,7 +85,7 @@ ynh_system_user_create --username=$app --home_dir="$final_path"
 
 if [ "$upgrade_type" == "UPGRADE_APP" ]
 then
-	ynh_script_progression --message="Upgrading source files..." --weight=1
+	ynh_script_progression --message="Upgrading source files..."
 
 	# Download, check integrity, uncompress and patch the source from app.src
 	ynh_setup_source --dest_dir="$final_path" --keep="deployment.ini"
@@ -98,29 +96,27 @@ chmod -R o-rwx "$final_path"
 chown -R $app:www-data "$final_path"
 
 #=================================================
-# UPGRADE DEPENDENCIES
-#=================================================
-ynh_script_progression --message="Upgrading dependencies..." --weight=1
-
-ynh_install_app_dependencies $pkg_dependencies
-ynh_install_python --python_version=$python_version
-
-#=================================================
 # NGINX CONFIGURATION
 #=================================================
-ynh_script_progression --message="Upgrading NGINX web server configuration..." --weight=1
+ynh_script_progression --message="Upgrading NGINX web server configuration..."
 
 # Create a dedicated NGINX config
 ynh_add_nginx_config
+
+#=================================================
+# UPGRADE DEPENDENCIES
+#=================================================
+ynh_script_progression --message="Upgrading dependencies..."
+
+ynh_install_app_dependencies $pkg_dependencies
 
 #=================================================
 # SPECIFIC UPGRADE
 #=================================================
 # UPDATE A CONFIG FILE
 #=================================================
-ynh_script_progression --message="Updating a configuration file..." --weight=1
+ynh_script_progression --message="Updating a configuration file..."
 
-ynh_use_python
 ynh_add_config --template="../conf/deployment.ini" --destination="$final_path/deployment.ini"
 
 chmod 400 "$final_path/deployment.ini"
@@ -129,21 +125,21 @@ chown $app:$app "$final_path/deployment.ini"
 #=================================================
 # BUILD APP
 #=================================================
-ynh_script_progression --message="Buiding app..." --weight=1
+ynh_script_progression --message="Buiding app..."
 
 pushd "$final_path"
-	ynh_use_python
+	ynh_secure_remove --file="$final_path/venv"
+	ynh_exec_as $app virtualenv --distribute --no-site-packages venv
 	ynh_replace_string --match_string="allow_hosts = static.mediadrop.video" --replace_string="#allow_hosts = static.mediadrop.video" --target_file="${final_path}/setup.cfg"
-	ynh_exec_warn_less $ynh_pip install uwsgi mysqlclient
-	ynh_exec_warn_less $ynh_python setup.py develop
-	ynh_exec_warn_less $ynh_python_path/paster setup-app ${final_path}/deployment.ini
-	chown -R $app:$app $pyenv_install_dir/versions/$python_version/envs/mediadrop
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/pip install uwsgi
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/python setup.py develop
+	ynh_exec_warn_less ynh_exec_as $app $final_path/venv/bin/paster setup-app ${final_path}/deployment.ini
 popd
 
 #=================================================
 # SETUP SYSTEMD
 #=================================================
-ynh_script_progression --message="Upgrading systemd configuration..." --weight=1
+ynh_script_progression --message="Upgrading systemd configuration..."
 
 # Create a dedicated systemd config
 ynh_add_systemd_config
@@ -154,7 +150,7 @@ ynh_add_systemd_config --service="$app-uwsgi" --template="systemd-uwsgi.service"
 #=================================================
 # SETUP LOGROTATE
 #=================================================
-ynh_script_progression --message="Upgrading logrotate configuration..." --weight=1
+ynh_script_progression --message="Upgrading logrotate configuration..."
 
 mkdir -p "/var/log/$app"
 chown $app:$app "/var/log/$app"
@@ -164,7 +160,7 @@ ynh_use_logrotate --non-append
 #=================================================
 # INTEGRATE SERVICE IN YUNOHOST
 #=================================================
-ynh_script_progression --message="Integrating service in YunoHost..." --weight=1
+ynh_script_progression --message="Integrating service in YunoHost..."
 
 yunohost service add $app
 yunohost service add "$app-uwsgi" --log="/var/log/$app/uwsgi.log"
@@ -172,7 +168,7 @@ yunohost service add "$app-uwsgi" --log="/var/log/$app/uwsgi.log"
 #=================================================
 # START SYSTEMD SERVICE
 #=================================================
-ynh_script_progression --message="Starting a systemd service..." --weight=1
+ynh_script_progression --message="Starting a systemd service..."
 
 # Start a systemd service
 ynh_systemd_action --service_name=$app --action="start" --log_path="systemd" --line_match="Started"
@@ -181,7 +177,7 @@ ynh_systemd_action --service_name="$app-uwsgi" --action="start" --log_path="syst
 #=================================================
 # RELOAD NGINX
 #=================================================
-ynh_script_progression --message="Reloading NGINX web server..." --weight=1
+ynh_script_progression --message="Reloading NGINX web server..."
 
 ynh_systemd_action --service_name=nginx --action=reload
 
@@ -189,4 +185,4 @@ ynh_systemd_action --service_name=nginx --action=reload
 # END OF SCRIPT
 #=================================================
 
-ynh_script_progression --message="Upgrade of $app completed" --last
+ynh_script_progression --message="Upgrade of $app completed"

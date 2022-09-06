@@ -11,6 +11,7 @@
     "upstream": {
         "license": "GPL-3.0-or-later",
         "website": "http://mediadrop.video/",
+        "demo": "https://demo.example.com",
         "admindoc": "https://mediadrop.video/docs/",
         "code": "https://github.com/mediadrop/mediadrop"
     },
@@ -22,7 +23,7 @@
     "requirements": {
         "yunohost": ">= 4.3.0"
     },
-    "multi_instance": false,
+    "multi_instance": true,
     "services": [
         "nginx",
         "mysql"
